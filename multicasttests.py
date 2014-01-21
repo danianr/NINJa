@@ -30,25 +30,25 @@ class MulticastTestCase(unittest.TestCase):
        # Test the bound port first; if the port isn't correct, then the bind failed
        # and it's pointless to test the socketlevel options
        (address, port) = self.mcast.sock.getsockname()
-       assert( port == self.port, "bound port is incorrect")
+       assert port == self.port, "bound port is incorrect"
 
        # The selection of a mulitcast interface is particularly dicey and relies
        # on the hostname being set correctly.  If the multicast interface is unset,
        # this is either an indication that the hostname is unset or set to an IP address
        # which does not resolve to an interface on this host
        maddr = self.mcast.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF)
-       assert( maddr != 0, "multicast interface is not set")
+       assert maddr != 0, "multicast interface is not set"
 
 
        # If the loopback socket is selected, multicast packets will not leave this host
        micastif = socket.inet_ntoa(struct.pack(i, maddr))
-       assert( mcastif != '127.0.0.1', "multicast interface is using the loopback")
+       assert mcastif != '127.0.0.1', "multicast interface is using the loopback"
 
        ttl = self.mcast.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_TTL)
-       assert( ttl == self.ttl, "ttl is not set correctly")
+       assert ttl == self.ttl, "ttl is not set correctly"
 
        mloop = self.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_LOOP)
-       assert( mloop == 1, "Multicast loop option unset / will not communicate with backend")
+       assert mloop == 1, "Multicast loop option unset / will not communicate with backend"
 
 
     def createTestJobs(self):
@@ -68,7 +68,7 @@ class MulticastTestCase(unittest.TestCase):
 
        mocks.append(MockJob(213, 'urn:uuid:477589bb-9a35-3fab-61b0-a89311e07c5b',
                             'cd93b7ccec58480bb7d8089408066bda3a4048f8038811b072cc9acc9eb56edd0e34f51175bc437584abb0e17120524f6d04645ebfaeaa125bb0c249b1899e69',
-			    'foobar', 1387306912, 1, 'localhost', 'keeper.pl', False, 3)
+			    'foobar', 1387306912, 1, 'localhost', 'keeper.pl', False, 3))
 
        mocks.append(MockJob(215, 'urn:uuid:b7fa6482-3ff5-3043-547d-2007c36b2391',
                             'd3415520c533b510a4243fb4c56412fb371ff16f1c7cc26dec6007a7b475cd07c45ade1476e49c9f0d6e05c0b8c0079d764a0f28328d5c8e1f47b7a0ab1301f7',
@@ -76,7 +76,7 @@ class MulticastTestCase(unittest.TestCase):
 
        mocks.append(MockJob(217, 'urn:uuid:23e2529d-5a81-35a2-5b35-59e47825057c',
                             'b9b8004ec67c11578a6eb3a3a821e7e8c0ed7ca28907a56d74bbbd4d691343dcbd34e2652447b83f59cdfe4c5bf130bff5595faeb5da0f8b554faa48b4fc65d0',
-			    'dr2481', 1389625485, 1, 'localhost', 'Inbox (507) - dr2481@columbia.edu - LionMail Mail', False, 3)
+			    'dr2481', 1389625485, 1, 'localhost', 'Inbox (507) - dr2481@columbia.edu - LionMail Mail', False, 3))
 
        mocks.append(MockJob(218, 'urn:uuid:d2b4e7a0-4a43-3509-51b8-5ad94a6c8c76',
                             '217af37f15ffd8ca2a3692fbf2083c66b9438018620662a324fbbd5c8369850bef46b3e92dcf1c489134dc4071d9a4776ab4c424896d22ca8367845506336f4d',
@@ -112,6 +112,6 @@ class MulticastTestCase(unittest.TestCase):
 
        self.mcast.advertise(job)
        buf = socket.recv(384)
-       assert(buf != '', "unable to retreieve advertised job information locally")
-       assert(buf == advertFmt(job), "advertised information and independently formatted job info do not match")
+       assert buf != '', "unable to retreieve advertised job information locally"
+       assert buf == advertFmt(job), "advertised information and independently formatted job info do not match"
 

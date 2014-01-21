@@ -1,4 +1,4 @@
-from jobqueue import Job
+from jobqueue import Job, JobQueue
 
 class MockJob(Job):
 
@@ -32,6 +32,6 @@ class MockQueue(JobQueue):
        self.mcast = None
 
 
-   def refresh:
+   def refresh(self):
        print "refresh called"
 
