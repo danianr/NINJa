@@ -25,7 +25,7 @@ class Controller(object):
       self.mainscreen = None
       self.conn = cups.Connection() 
       self.selected = list()
-      self.authorize = PageServerAuth(authname)
+      self.authorize = PageServerAuth(authname, self.errorCallback)
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
       self.mcast = MulticastMember('233.0.14.56', 34426, 7, unipattern)
       self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn,
@@ -65,6 +65,18 @@ class Controller(object):
        for k in self.login.bind_class('Entry'):
           print '----> Binding: %s' % (k,)
           print self.login.bind_class('Entry', k )
+
+
+
+   def errorCallback(self, message):
+      err = Toplevel(master=self.tk)
+      errlabel = Label(text=message, master=err)
+      errlabel.pack()
+      err.pack()
+      print "Error: %s" % (message,)
+      self.tk.update_idle()
+      err.after(6000, err.destroy)
+
 
    def start(self):
          #self.conn.enablePrinter(self.privateName)

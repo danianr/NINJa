@@ -12,10 +12,11 @@ uuidKey  = 'job-uuid'
 supportedUriKey = 'printer-uri-supported'
 
 class PageServerAuth(object):
-   def __init__(self, hostname, conn=None):
+   def __init__(self, hostname, idGenerator, conn=None):
        self.hostname   = hostname
        self.servername = 'wwwapp.cc.columbia.edu'
-       private    = 'watson8_printer_atg_columbia_edu'
+       self.idGenerator = idGenerator
+       private    = 'private'
        if conn is None:
           self.conn = cups.Connection()
        else:
@@ -24,10 +25,10 @@ class PageServerAuth(object):
        self.privateUri = printers[private][supportedUriKey]
 
 
-   def authorizeJobs(self, selectedJobs):
+   def authorizeJobs(self, selectedJobs, errorcb):
        print 'Entering authorizeJobs'
        print repr(selectedJobs)
-       requestId=746125
+       requestId=self.idGenerator.get()
 
        for j in selectedJobs:
           url = '/atg/PageServer/query/%s/%s/%.5x/%d' % (self.hostname, j.username, requestId, j.pages)
@@ -42,10 +43,10 @@ class PageServerAuth(object):
                error_message('Releasing jobId:%s' % (j.jobId,))
                self.releaseJob(j, queryResponse['reqId'])
           else:
-               error_message('Insufficient Quota')
+               errorcb('Insufficient Quota')
 
 
-   def releaseJob(self, job, requestId):
+   def releaseJob(self, job, requestId, errorcb):
 
        self.conn.moveJob(job_id=job.jobId, job_printer_uri=self.privateUri)
        waiting = True
@@ -57,7 +58,7 @@ class PageServerAuth(object):
                  url = '/atg/PageServer/deduct/%s/%s/%s/%d' % (self.hostname, job.username,
                                                requestId, attr['job-media-sheets-completed'])
               else:
-                 error_message("There was a problem printing your document")
+                 errorcb("There was a problem printing your document")
                  
                  
        http = httplib.HTTPSConnection(self.servername)

@@ -139,7 +139,7 @@ class RemoteFrame(Frame):
    def __init__(self, selectedList, username, cloudAdapter,
                  conn=None, authHandler=None, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
-       self.jq = jobqueue
+       self.cloudAdapter = cloudAdapter
        self.pack(expand=YES, fill=BOTH)
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
@@ -154,7 +154,6 @@ class RemoteFrame(Frame):
        self.jobs = dict()
        self.currentDisplay = []
        self.loggedInUsername=username
-       self.jq.refresh()
        self.nextRefresh = self.after_idle(self.refresh)
        self.joblist.bind('<Return>', self.handleAuth, add=True)
        self.unbind_all('<Key-Tab>')
@@ -167,24 +166,28 @@ class RemoteFrame(Frame):
        self.after_cancel(self.nextRefresh)
        del self.selectedList[:]
        positionMapping=[]
-       filter(lambda (i, j): positionMapping.append(j), self.currentDisplay)
-       for j in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
-           print 'Adding jobId:%d to selectedList' % (j.jobId,)
-           self.selectedList.append(j)
-       self.auth(self.selectedList)
+       filter(lambda (u, s, p, l): positionMapping.append(l), self.currentDisplay)
+       for l in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
+           (uuid, printer, sha512) = self.jobs(l)
+           print 'Adding remoteJob:(%s, %s, %s)  to selectedList' % (uuid, printer, sha512)
+           # Retreive the jobs here with the keeper.pl script
+
+       i#self.auth(self.selectedList)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
    def refresh(self, event=None):
        self.after_cancel(self.nextRefresh)
-       displayJobs = self.cloudAdapter.getIndex(self.loggedInUsername)
-       if displayJobs != self.currentDisplay:
+       remoteIndex = self.cloudAdapter.getIndex(self.loggedInUsername)
+       if remoteIndex != self.currentDisplay:
           self.joblist.delete(0,len(self.jobs) )
-          if displayJobs is not None:
-             for (jobId, job) in displayJobs:
-                 self.joblist.insert(self.joblist.size(), job)
+          self.jobs.clear()
+          if remoteIndex is not None:
+             for (uuid, sha512, printer, line) in remoteIndex:
+                 self.jobs[line] = (uuid, printer, sha512)
+                 self.joblist.insert(self.joblist.size(), line)
           self.joblist.update_idletasks()
-          self.currentDisplay = displayJobs
+          self.currentDisplay = remoteIndex
        self.nextRefresh = self.after(6000, self.refresh)
 
 
