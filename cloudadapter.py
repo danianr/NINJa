@@ -14,23 +14,21 @@ class CloudAdapter(object):
        s.sendall(cmd)
        return s.makefile()
 
-   def getRawHeaders(self, username):
+   def getHeaders(self, username):
        cmd = 'return %s' % (username,)
        sock = self._getfile(cmd)
        rawheaders = sock.readlines()
        sock.close()
        return rawheaders
 
-   def getHeaders(self, username):
-       displayHeaders = []
-       for raw in self.getRawHeaders(username):
+   def getIndex(self, username):
+       index = []
+       for raw in self.getHeaders(username):
            (uuid, sha512, created, pageinfo, ipaddr,
             printer, username, title ) = raw.split(':', 8)
            created = datetime.fromtimestamp(int(created))
            
            print 'ip:%s printer:%s user:%s' % (ipaddr, printer, username)
-           #hs = ntohs(int(ipaddr))
-           #print '%s n:%d  h:%d'  % (inet_ntoa(hs), ipaddr, hs)
            pageinfo = int(pageinfo)
            if (pageinfo % 2 == 0):
               duplex = False
@@ -42,11 +40,6 @@ class CloudAdapter(object):
               duplex = True
               sheets = (pageinfo + 1 ) >> 2
            client = 'foo'
-           header = '%s  %s  %d   %s' % ( client, created.strftime('%a %I:%M:%S %p'), sheets, title[:32])
-           displayHeaders.append(header)
-       return displayHeaders
-
-if __name__ == '__main__':
-
-   cloud = CloudAdapter('/tmp/keepersock')
-   print cloud.getHeaders('dr2481')
+           displaystr = '%s  %s  %d   %s' % ( client, created.strftime('%a %I:%M:%S %p'), sheets, title[:32])
+           index.append((uuid, sha512, printer, displaystr))
+       return index 
