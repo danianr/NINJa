@@ -67,6 +67,7 @@ class MulticastTestCase(unittest.TestCase):
 
        for job in testJobs:
            def expectedValue():
+              uuidpattern = re.compile('urn:uuid:(.{8})-(.{4})-(.{4})-(.{4})-(.{12})')
               m = uuidpattern.match(job.uuid)
               uuid = '%s%s%s%s%s' % (m.group(1), m.group(2), m.group(3), m.group(4), m.group(5))
 	      src = socket.gethostbyname(job.hostname)
@@ -76,11 +77,13 @@ class MulticastTestCase(unittest.TestCase):
 	      m = mcast.inet4pattern.match(dst)
 	      dst = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
 	      return '%32s%128s%.20lu%.5u%1u%19s%19s%-15s%-63s\n' % ( uuid, job.sha512, job.creation, job.pages, 
-	                                                              job.duplex, src, dst, job.username, job.title[:63] ) 
-           mcast.advertise(job)
-           buf = socket.recv(384)
-           assert buf != '', "unable to retreieve advertised job information locally"
-           assert buf == advertFmt(job), "advertised information and independently formatted job info do not match"
+	   
+                                                              job.duplex, src, dst, job.username, job.title[:63] ) 
+           if unipattern.match(job.username):
+              mcast.advertise(job)
+              buf = mcast.sock.recv(384)
+              assert buf != '', "unable to retreieve advertised job information locally"
+              assert buf == expectedValue(), "advertised information and independently formatted job info do not match"
 
 
 if __name__ == '__main__':
