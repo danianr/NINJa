@@ -30,9 +30,11 @@ class Controller(object):
       self.mcast = MulticastMember('233.0.14.56', 34426, 7, unipattern)
       self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn,
                                            multicastHandler=self.mcast)
+      self.nextQueueRefresh = self.tk.after_idle(self.updateQueue)
       self.cloudAdapter = CloudAdapter('/tmp/keepersock')
 
    def authCallback(self, username, result):
+      self.lockQueue()
       self.login = None
       if result == True:
          self.loggedInUsername = username
@@ -46,12 +48,14 @@ class Controller(object):
                                       master=self.tk)
 
       else:
+         self.unlockQueue()
          self.loggedInUsername = None
          self.login = AuthDialog(self.authCallback, master=self.tk)
 
    def logoutCallback(self):
        self.mainscreen.destroy()
        self.mainscreen = None
+       self.unlockQueue()
        self.login = AuthDialog(self.authCallback, master=self.tk)
        print self.login.bindtags()
        print self.login.bind('<Key-Tab>')
@@ -77,6 +81,23 @@ class Controller(object):
       self.tk.update_idle()
       err.after(6000, err.destroy)
 
+
+   def lockQueue(self):
+      if self.nextQueueRefresh is not None:
+         self.tk.after_cancel(self.nextQueueRefresh)
+      self.nextQueueRefresh = None
+         
+
+   def unlockQueue(self):
+      if self.nextQueueRefresh is not None:
+         self.tk.after_cancel(self.nextQueueRefresh)
+      self.nextQueueRefresh = self.tk.after_idle(self.updateQueue)
+
+   def updateQueue(self):
+      if self.nextQueueRefresh is not None:
+         self.tk.after_cancel(self.nextQueueRefresh)
+      self.jobqueue.refresh()
+      self.nextQueueRefresh = after(4000, self.updateQueue)
 
    def start(self):
          #self.conn.enablePrinter(self.privateName)

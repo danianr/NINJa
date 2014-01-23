@@ -9,13 +9,12 @@ class MockJob(Job):
    def __init__(self, jobId, uuid, sha512, username, creation, pagecount, client, title, duplex=False, state=3):
         self.__hash__ = lambda: jobId
         self.jobId = jobId
-	self.printerUri = printerUri
 	self.uuid = uuid
 	self.sha512 = sha512
 	self.username = username
 	self.creation = creation
-	self.pagecount = pagecount
-	self.client = client
+	self.pages = pagecount
+	self.hostname = client
 	self.title = title
 	self.duplex = duplex
 	self.jobState = state
