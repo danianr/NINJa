@@ -9,47 +9,6 @@ from mockjob import MockQueue as JobQueue
 
 class MulticastTestCase(unittest.TestCase):
 
-    def setup(self):
-
-       self.unipattern =  re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
-       self.address = '233.0.14.56'
-       self.port    = 34425
-       self.ttl     = 7
-
-       self.testJobs = self.createTestJobs()
-       backendServerPath = './multicast'
-       controlSocket     = '/tmp/keepersock'
-
-       # Production uses port 34426, use port 34425 for unittesting
-       # so as not to interfere
-       self.mcast = MulticastMember(self.address, self.port, self.ttl , self.unipattern)
-       
-    
-    def testBoundSocket(self):
-
-       # Test the bound port first; if the port isn't correct, then the bind failed
-       # and it's pointless to test the socketlevel options
-       (address, port) = self.mcast.sock.getsockname()
-       assert port == self.port, "bound port is incorrect"
-
-       # The selection of a mulitcast interface is particularly dicey and relies
-       # on the hostname being set correctly.  If the multicast interface is unset,
-       # this is either an indication that the hostname is unset or set to an IP address
-       # which does not resolve to an interface on this host
-       maddr = self.mcast.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF)
-       assert maddr != 0, "multicast interface is not set"
-
-
-       # If the loopback socket is selected, multicast packets will not leave this host
-       micastif = socket.inet_ntoa(struct.pack(i, maddr))
-       assert mcastif != '127.0.0.1', "multicast interface is using the loopback"
-
-       ttl = self.mcast.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_TTL)
-       assert ttl == self.ttl, "ttl is not set correctly"
-
-       mloop = self.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_LOOP)
-       assert mloop == 1, "Multicast loop option unset / will not communicate with backend"
-
 
     def createTestJobs(self):
        mocks = []
@@ -93,25 +52,36 @@ class MulticastTestCase(unittest.TestCase):
        return mocks
 
 
-    def testAdvertise(self, job):
+    def testAdvertise(self):
 
-       def expectedValue():
-           m = self.uuidpattern.match(job.uuid)
-           uuid = '%s%s%s%s%s' % (m.group(1), m.group(2), m.group(3), m.group(4), m.group(5))
-	   src = socket.gethostbyname(job.hostname)
-	   m = self.inet4pattern.match(src)
-	   src = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+       unipattern =  re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
+       address = '233.0.14.56'
+       port    = 34425
+       ttl     = 7
+       backendServerPath = './multicast'
+       controlSocket     = '/tmp/keepersock'
+       # Production uses port 34426, use port 34425 for unittesting
+       # so as not to interfere
+       mcast = MulticastMember(address, port, ttl , unipattern)
+       testJobs = self.createTestJobs() 
 
-	   dst = socket.gethostbyname(socket.gethostname())
-	   m = self.inet4pattern.match(dst)
-	   dst = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+       for job in testJobs:
+           def expectedValue():
+              m = uuidpattern.match(job.uuid)
+              uuid = '%s%s%s%s%s' % (m.group(1), m.group(2), m.group(3), m.group(4), m.group(5))
+	      src = socket.gethostbyname(job.hostname)
+	      m =  mcast.inet4pattern.match(src)
+	      src = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+	      dst = socket.gethostbyname(socket.gethostname())
+	      m = mcast.inet4pattern.match(dst)
+	      dst = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+	      return '%32s%128s%.20lu%.5u%1u%19s%19s%-15s%-63s\n' % ( uuid, job.sha512, job.creation, job.pages, 
+	                                                              job.duplex, src, dst, job.username, job.title[:63] ) 
+           mcast.advertise(job)
+           buf = socket.recv(384)
+           assert buf != '', "unable to retreieve advertised job information locally"
+           assert buf == advertFmt(job), "advertised information and independently formatted job info do not match"
 
-	   return '%32s%128s%.20lu%.5u%1u%19s%19s%-15s%-63s\n' % ( uuid, job.sha512, job.creation, job.pages, 
-	                                                           job.duplex, src, dst, job.username, job.title[:63] ) 
 
-
-       self.mcast.advertise(job)
-       buf = socket.recv(384)
-       assert buf != '', "unable to retreieve advertised job information locally"
-       assert buf == advertFmt(job), "advertised information and independently formatted job info do not match"
-
+if __name__ == '__main__':
+   unittest.main()
