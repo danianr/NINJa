@@ -12,7 +12,7 @@
 #include <pthread.h>
 
 
-#define CONTROL_PATH "/tmp/keepersock"
+#define DEFAULT_CONTROL_PATH "/tmp/keepersock"
 
 #ifndef SO_REUSEPORT
 #define SO_REUSEPORT 15
@@ -145,7 +145,7 @@ int control_command(char *cmdbuffer, char **arg_offset){
 
 
 
-void control_channel(){
+void control_channel(char **socketpath){
    /* return is the file descriptor of the control socket */
 
    struct sockaddr_un un, cliun;
@@ -166,8 +166,8 @@ void control_channel(){
    len = sizeof(cliun);
    cmdbuf = (char *) malloc(1024);
    un.sun_family = AF_UNIX;
-   strcpy(un.sun_path, CONTROL_PATH);
-   unlink(CONTROL_PATH);
+   strcpy(un.sun_path, socketpath[1]);
+   unlink(socketpath[1]);
    csd = socket(AF_UNIX, SOCK_STREAM, 0);
    size = offsetof(struct sockaddr_un, sun_path) + strlen(un.sun_path);
 
@@ -247,8 +247,8 @@ void control_channel(){
    }
    close(csd);
    printf("removing UNIX socket\n");
-   unlink(CONTROL_PATH);
-   if (username) free(username);
+   unlink(socketpath[1]);
+   exit(0);
    return;
 }
 
@@ -294,7 +294,7 @@ int main(int argc, char **argv){
    struct circular_queue *circular=NULL, *c;
    struct userqueue *queue;
    struct jobinfo *j;
-   char *src, *dst;
+   char *src, *dst, *mcastaddr, *port;
    struct in_addr *isrc, *idst;
    char uuid[UUIDSIZE], sha512[SHA512SIZE], username[USERSIZE], title[TITLESIZE];
    unsigned long created;
@@ -302,16 +302,56 @@ int main(int argc, char **argv){
    char buf[BUFSIZE];
    char *pages_str, *created_str;
    char *hostname, *interface, *p;
+   char *controlpath[3] = { "keepersock", DEFAULT_CONTROL_PATH, ""};
    struct addrinfo *hints, **res;
    int ecode, optval, ctrl, bytes_read = 0;
    pthread_t control_tid, reaper_tid;
 
 
 
+   switch (argc){
+
+       case 1:
+            mcastaddr = "233.0.14.56";
+            port = "34426";
+            dprintf(1, "Using default multicast group %s:%s\n", mcastaddr, port);
+            break;;
+
+       case 2:
+            if ( strncmp("-t", argv[1], 2) == 0 ){
+                mcastaddr = "233.0.14.56";
+                port = "34425";
+            }else{
+                port = strdup(argv[1]);
+            }
+            dprintf(1, "Using multicast group %s:%s\n", mcastaddr, port);
+            break;;
+
+       case 3:
+            mcastaddr = strdup(argv[1]);
+            port = strdup(argv[2]);
+            dprintf(1, "Using multicast group %s:%s\n", mcastaddr, port);
+            break;;
+
+       case 4:
+            mcastaddr = strdup(argv[1]);
+            port = strdup(argv[2]);
+            controlpath[1] = strdup(argv[3]);
+            dprintf(1, "Using multicast group %s:%s\n", mcastaddr, port);
+            dprintf(1, "Using UNIX socket %s for control\n", controlpath[0]);
+            break;;
+
+       default:
+            dprintf(2, "Incorrect number number of arguments\n");
+            exit(-1);
+            break;;
+   }
+
+
    hcreate(NUM_USERS);
 
 
-   pthread_create(&control_tid, NULL, (void *) &control_channel, NULL);
+   pthread_create(&control_tid, NULL, (void *) &control_channel, controlpath);
 
    hints = (struct addrinfo *) malloc(sizeof(struct addrinfo));
    memset(hints, 0, sizeof(struct addrinfo));
