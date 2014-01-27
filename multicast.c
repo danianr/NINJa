@@ -7,12 +7,15 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
+#include <signal.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <pthread.h>
 
 
 #define DEFAULT_CONTROL_PATH "/tmp/keepersock"
+#define DEFAULT_MCAST_ADDRESS "233.0.14.56"
+#define DEFAULT_MCAST_PORT "34426"
 
 #ifndef SO_REUSEPORT
 #define SO_REUSEPORT 15
@@ -145,12 +148,32 @@ int control_command(char *cmdbuffer, char **arg_offset){
 
 
 
+/* control socket descriptor in the global scope
+   so as to be availble from signal handlers     */
+int csd;
+void clean_exit(){
+    struct sockaddr_un *sockaddr;
+    socklen_t size = 1024;
+
+    sockaddr = (struct sockaddr_un *)  malloc(1024);
+    if ( getsockname(csd, (struct sockaddr *) sockaddr, &size) == 0){
+       close(csd);
+       unlink(sockaddr->sun_path);
+    }else{
+       close(csd);
+    }
+    free(sockaddr);
+    exit(0);
+}
+       
+    
 void control_channel(char **socketpath){
-   /* return is the file descriptor of the control socket */
+   /* int csd is in the global scope, see above
+      and contains the file descriptor of the control socket */
 
    struct sockaddr_un un, cliun;
    struct jobinfo *j;
-   int csd, size,br, len, clifd, shutdown=0;
+   int size,br, len, clifd, shutdown=0;
    char *cmdbuf, *username, *argument, *sp;         /* cmd parsing */
    char *uuid, *sha512, *client, *printer, *title;  /* display buffers */
    ENTRY item, *found_item;                         /* hashmap structs */
@@ -167,14 +190,18 @@ void control_channel(char **socketpath){
    cmdbuf = (char *) malloc(1024);
    un.sun_family = AF_UNIX;
    strcpy(un.sun_path, socketpath[1]);
-   unlink(socketpath[1]);
    csd = socket(AF_UNIX, SOCK_STREAM, 0);
    size = offsetof(struct sockaddr_un, sun_path) + strlen(un.sun_path);
 
    if (bind(csd,  (struct sockaddr *) &un, size) < 0){
        perror("bind failed");
+       close(csd);
+       exit(1);
+   }else{
+       signal(SIGINT,  clean_exit);
+       signal(SIGTERM, clean_exit);
    }
-  
+
    /* we should never be processing more than 1 command anyway */ 
    listen(csd, SOMAXCONN);
    while(!shutdown){
@@ -245,10 +272,7 @@ void control_channel(char **socketpath){
       }   
       close(clifd);
    }
-   close(csd);
-   printf("removing UNIX socket\n");
-   unlink(socketpath[1]);
-   exit(0);
+   clean_exit();
    return;
 }
 
@@ -258,7 +282,7 @@ struct ip_mreq     group;
 int                sd;
 
 
-#define BUFSIZE 384
+#define BUFSIZE 295
 
 /* Records widths and offsets */
 #define UUIDSIZE 32
@@ -308,37 +332,31 @@ int main(int argc, char **argv){
    pthread_t control_tid, reaper_tid;
 
 
-
+   mcastaddr = DEFAULT_MCAST_ADDRESS;
+   port = DEFAULT_MCAST_PORT;
    switch (argc){
 
        case 1:
-            mcastaddr = "233.0.14.56";
-            port = "34426";
-            dprintf(1, "Using default multicast group %s:%s\n", mcastaddr, port);
+            dprintf(1, "Using default values\n");
             break;;
 
        case 2:
             if ( strncmp("-t", argv[1], 2) == 0 ){
-                mcastaddr = "233.0.14.56";
-                port = "34425";
+                port = DEFAULT_MCAST_PORT - 1;
             }else{
                 port = strdup(argv[1]);
             }
-            dprintf(1, "Using multicast group %s:%s\n", mcastaddr, port);
             break;;
 
        case 3:
             mcastaddr = strdup(argv[1]);
             port = strdup(argv[2]);
-            dprintf(1, "Using multicast group %s:%s\n", mcastaddr, port);
             break;;
 
        case 4:
             mcastaddr = strdup(argv[1]);
             port = strdup(argv[2]);
             controlpath[1] = strdup(argv[3]);
-            dprintf(1, "Using multicast group %s:%s\n", mcastaddr, port);
-            dprintf(1, "Using UNIX socket %s for control\n", controlpath[0]);
             break;;
 
        default:
@@ -346,6 +364,8 @@ int main(int argc, char **argv){
             exit(-1);
             break;;
    }
+   dprintf(1, "Using multicast group %s:%s\n", mcastaddr, port);
+   dprintf(1, "Using UNIX socket %s for control\n", controlpath[0]);
 
 
    hcreate(NUM_USERS);
@@ -373,9 +393,9 @@ int main(int argc, char **argv){
 
 
    res = (struct addrinfo **) malloc(sizeof(struct addrinfo **));   
-   getaddrinfo(NULL, "34426", hints, res);
+   getaddrinfo(NULL, port, hints, res);
    if (bind(sd, res[0]->ai_addr, res[0]->ai_addrlen) ) {
-      perror("binding datagram socket");
+      perror("error binding datagram socket");
       close(sd);
       exit(1);
    }else{
@@ -386,7 +406,7 @@ int main(int argc, char **argv){
    hostname  = (char *) malloc(256);
    memset(hostname, 0, 256);
    gethostname(hostname, 256);
-   getaddrinfo(hostname, "34426", hints, res);
+   getaddrinfo(hostname, port, hints, res);
 
 
    /* the ip_mreq is still using a legacy in_addr, so convert from the ai_addr */
@@ -401,10 +421,10 @@ int main(int argc, char **argv){
    }
       
    inet_pton(AF_INET, interface, &group.imr_interface.s_addr);
-   inet_pton(AF_INET, "233.0.14.56", &group.imr_multiaddr.s_addr);
+   inet_pton(AF_INET, mcastaddr, &group.imr_multiaddr.s_addr);
 
    if (setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)) < 0){
-     perror("adding multicast group");
+     perror("error adding multicast group");
      close(sd);
      exit(1);
    }
@@ -416,7 +436,7 @@ int main(int argc, char **argv){
      bytes_read = recv(sd, buf, BUFSIZE, 0);
      printf("RECIEVED: %4d bytes [%s]\n", bytes_read, buf);
      if (read < 0 ) {
-        perror("reading datagram message");
+        perror("error reading datagram message");
         close(sd);
         exit(1);
      }
@@ -507,7 +527,6 @@ int main(int argc, char **argv){
      free(src);
      free(dst);
    }
-
 
    return 0;
 }
