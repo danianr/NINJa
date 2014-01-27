@@ -89,7 +89,7 @@ class MulticastTestCase(unittest.TestCase):
 
 
     def testJobAdvertise(self):
-       print 'Checking multicast advertise results for %d submitted jobs' % len(self.testJobs)
+       advertiseCount = 0
        uuidpattern = re.compile('urn:uuid:(.{8})-(.{4})-(.{4})-(.{4})-(.{12})')
        for job in self.testJobs:
            def expectedValue():
@@ -97,20 +97,23 @@ class MulticastTestCase(unittest.TestCase):
               uuid = '%s%s%s%s%s' % (m.group(1), m.group(2), m.group(3), m.group(4), m.group(5))
 	      src = socket.gethostbyname(job.hostname)
 	      m =  self.mcast.inet4pattern.match(src)
-	      src = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+	      src = '%.3d.%.3d.%.3d.%.3d' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
 	      dst = socket.gethostbyname(socket.gethostname())
 	      m = self.mcast.inet4pattern.match(dst)
-	      dst = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
-	      return '%32s%128s%.20lu%.5u%1u%19s%19s%-15s%-63s\n' % ( uuid, job.sha512, job.creation, job.pages, 
+	      dst = '%.3d.%.3d.%.3d.%.3d' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+	      return '%32s%128s%.20lu%.5u%1u%15s%15s%-15s%-63s\n' % ( uuid, job.sha512, job.creation, job.pages, 
 	   
                                                               job.duplex, src, dst, job.username, job.title[:63] ) 
            if self.unipattern.match(job.username):
+              advertiseCount += 1
+              print advertiseCount
               self.mcast.advertise(job)
               buf = self.mcast.sock.recv(384)
-              assert buf != '', "unable to retreieve advertised job information locally"
-              assert buf == expectedValue(), "advertised information and independently formatted job info do not match"
+              self.assertNotEqual(buf, '', "unable to retreieve advertised job information locally")
+              self.assertEqual(buf, expectedValue(), "incorrectly formatted job header")
 
-
+   #        self.assertFalse(advertiseCount < 8, "Too few jobs were advertised")
+   #        self.assertFalse(advertiseCount > 8, "Jobs without a correctly formmated uni were advertised")
 
 
     def testBoundSocket(self):
@@ -118,26 +121,25 @@ class MulticastTestCase(unittest.TestCase):
        # Test the bound port first; if the port isn't correct, then the bind failed
        # and it's pointless to test the socketlevel options
        (address, port) = self.mcast.sock.getsockname()
-       assert port == self.port, "bound port is incorrect"
+       self.assertEqual(port, self.port, "bound port is incorrect")
 
        # The selection of a mulitcast interface is particularly dicey and relies
        # on the hostname being set correctly.  If the multicast interface is unset,
        # this is either an indication that the hostname is unset or set to an IP address
        # which does not resolve to an interface on this host
        maddr = self.mcast.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF)
-       assert maddr != 0, "multicast interface is not set"
+       self.assertNotEqual(maddr, 0, "multicast interface is not set")
 
 
        # If the loopback socket is selected, multicast packets will not leave this host
        mcastif = socket.inet_ntoa(struct.pack('i', maddr))
-       assert mcastif != '127.0.0.1', "multicast interface is using the loopback"
+       self.assertNotEqual(mcastif, '127.0.0.1', "multicast interface is using the loopback")
 
        ttl = self.mcast.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_TTL)
-       assert ttl ==  self.ttl, "ttl is not set correctly"
+       self.assertEqual(ttl,  self.ttl, "ttl is not set correctly")
 
        mloop = self.mcast.sock.getsockopt(socket.SOL_IP, socket.IP_MULTICAST_LOOP)
-       assert mloop == 1, "Multicast loop option unset / will not communicate with backend"
-
+       self.assertEqual(mloop, 1, "Multicast loop option unset")
 
 if __name__ == '__main__':
    unittest.main()

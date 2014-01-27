@@ -39,13 +39,13 @@ class MulticastMember(object):
 
           src = socket.gethostbyname(job.hostname)
           m = self.inet4pattern.match(src)
-          src = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+          src = '%.3d.%.3d.%.3d.%.3d' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
 
           dst = socket.gethostbyname(socket.gethostname())
           m = self.inet4pattern.match(dst)
-          dst = '0x%.2x.0x%.2x.0x%.2x.0x%.2x' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
+          dst = '%.3d.%.3d.%.3d.%.3d' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
 
-          data = '%32s%128s%.20lu%.5u%1u%19s%19s%-15s%-63s\n' % ( uuid, job.sha512, job.creation, job.pages, 
+          data = '%32s%128s%.20lu%.5u%1u%15s%15s%-15s%-63s\n' % ( uuid, job.sha512, job.creation, job.pages, 
                                 job.duplex, src, dst, job.username, job.title[:63] )
           print data
           s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
