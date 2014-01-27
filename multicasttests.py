@@ -13,6 +13,7 @@ class MulticastTestCase(unittest.TestCase):
 
 
     def setUp(self):
+       print "Running MulticastTestCase.setup()"
        self.unipattern =  re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
        self.address = '233.0.14.56'
        self.port    = 34425
@@ -70,13 +71,16 @@ class MulticastTestCase(unittest.TestCase):
        pid = os.spawnl(os.P_NOWAIT, backendServerPath, 'multicast', self.address, '%s' % self.port, sockpath) 
        time.sleep(1)
        print 'Backend multicast indexer start on %s:%s with control channel %s' % (self.address, self.port, sockpath)
-       unis = map(lambda f: f.username, filter(lambda j: self.unipattern.match(j.username), self.testJobs))
+       unis = set(map(lambda f: f.username, filter(lambda j: self.unipattern.match(j.username), self.testJobs)))
+       print unis
        for username in unis:
            ks = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
            errno = ks.connect_ex(sockpath)
            print 'connect to AF_UNIX:%s errno:%d\n' % (sockpath, errno)
            ctl = ks.makefile()
-           ks.sendall('return %s\n' % (username,))
+           cmd = 'return %s' % (username,)
+           print '%s << "%s"' % (sockpath, cmd)
+           ks.sendall(cmd)
            for header in ctl.readlines():
               print header
            ks.close()

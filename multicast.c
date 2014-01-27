@@ -189,7 +189,7 @@ void control_channel(char **socketpath){
    len = sizeof(cliun);
    cmdbuf = (char *) malloc(1024);
    un.sun_family = AF_UNIX;
-   strcpy(un.sun_path, socketpath[1]);
+   strcpy(un.sun_path, socketpath[0]);
    csd = socket(AF_UNIX, SOCK_STREAM, 0);
    size = offsetof(struct sockaddr_un, sun_path) + strlen(un.sun_path);
 
@@ -326,7 +326,7 @@ int main(int argc, char **argv){
    char buf[BUFSIZE];
    char *pages_str, *created_str;
    char *hostname, *interface, *p;
-   char *controlpath[3] = { "keepersock", DEFAULT_CONTROL_PATH, ""};
+   char *controlpath[2] = { DEFAULT_CONTROL_PATH, "" };
    struct addrinfo *hints, **res;
    int ecode, optval, ctrl, bytes_read = 0;
    pthread_t control_tid, reaper_tid;
@@ -356,7 +356,7 @@ int main(int argc, char **argv){
        case 4:
             mcastaddr = strdup(argv[1]);
             port = strdup(argv[2]);
-            controlpath[1] = strdup(argv[3]);
+            controlpath[0] = strdup(argv[3]);
             break;;
 
        default:
