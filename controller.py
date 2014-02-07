@@ -7,9 +7,12 @@ from jobqueue import *
 from cloudadapter import *
 import cups
 import re
+import random
+
+
+
 
 class Controller(object):
-
    def __init__(self, private, authname, public='public', tk=None):
       if tk != None: 
          self.tk = tk
@@ -25,7 +28,7 @@ class Controller(object):
       self.mainscreen = None
       self.conn = cups.Connection() 
       self.selected = list()
-      self.authorize = PageServerAuth(authname, self.errorCallback)
+      self.authorize = PageServerAuth(authname,  lambda: random.uniform(16, 4294967295) )
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
       self.mcast = MulticastMember('233.0.14.56', 34426, 7, unipattern)
       self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn,
@@ -72,16 +75,6 @@ class Controller(object):
 
 
 
-   def errorCallback(self, message):
-      err = Toplevel(master=self.tk)
-      errlabel = Label(text=message, master=err)
-      errlabel.pack()
-      err.pack()
-      print "Error: %s" % (message,)
-      self.tk.update_idle()
-      err.after(6000, err.destroy)
-
-
    def lockQueue(self):
       if self.nextQueueRefresh is not None:
          self.tk.after_cancel(self.nextQueueRefresh)
@@ -97,7 +90,7 @@ class Controller(object):
       if self.nextQueueRefresh is not None:
          self.tk.after_cancel(self.nextQueueRefresh)
       self.jobqueue.refresh()
-      self.nextQueueRefresh = after(4000, self.updateQueue)
+      self.nextQueueRefresh = self.tk.after(4000, self.updateQueue)
 
    def start(self):
          #self.conn.enablePrinter(self.privateName)

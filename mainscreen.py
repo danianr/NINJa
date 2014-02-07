@@ -6,11 +6,18 @@ import cups
 
 
 
+def errorcb(errmessage):
+    errormessage
+
+
+
+
 class MainScreen(Frame):
    def __init__(self, selectedList, username, jobqueue, cloudAdapter, conn=None,
                   authHandler=None,  logoutCb=None, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.pack(expand=YES, fill=BOTH)
+       self.tk  = master
        self.notebook = Notebook(master=self)
        self.instructions = StringVar()
        self.instructions.set('Left arrow selects Local jobs, Right arrow selects remote jobs, Enter prints')
@@ -53,6 +60,15 @@ class MainScreen(Frame):
        self.bind_all('<Key-Tab>', self.switchView )
        self.bind_all('<Key-Escape>', self.logout )
        self.jobWidget =  ( self.local.joblist, self.unclaimed.joblist )
+
+   def errorCallback(self, message):
+       err = Toplevel(master=self.tk)
+       errlabel = Label(text=message, master=err)
+       errlabel.pack()
+       err.pack()
+       print "Error: %s" % (message,)
+       self.tk.update_idle()
+       err.after(6000, err.destroy)
 
    def switchView(self, e):
        if isinstance(e.widget, Listbox):
@@ -116,7 +132,7 @@ class LocalFrame(Frame):
        for j in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
            print 'Adding jobId:%d to selectedList' % (j.jobId,)
            self.selectedList.append(j)
-       self.auth(self.selectedList)
+       self.auth(self.selectedList, errorcb)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
@@ -125,7 +141,7 @@ class LocalFrame(Frame):
        self.jq.refresh()
        displayJobs = self.jq.getClaimedJobs(self.loggedInUsername)
        if displayJobs != self.currentDisplay:
-          self.joblist.delete(0,len(self.jobs) )
+          self.joblist.delete(0,len(self.currentDisplay) )
           if displayJobs is not None:
              for (jobId, job) in displayJobs:
                  self.joblist.insert(self.joblist.size(), job)
@@ -172,7 +188,7 @@ class RemoteFrame(Frame):
            print 'Adding remoteJob:(%s, %s, %s)  to selectedList' % (uuid, printer, sha512)
            # Retreive the jobs here with the keeper.pl script
 
-       i#self.auth(self.selectedList)
+       self.auth(self.selectedList, errorcb)
        self.nextRefresh = self.after_idle(self.refresh)
 
 

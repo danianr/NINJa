@@ -71,13 +71,13 @@ class JobQueue(object):
 
    def refresh(self, event=None):
        incompleteJobs = self.conn.getJobs(which_jobs='not-completed')
+       self.remove( filter( lambda x: not incompleteJobs.has_key(x), self.jobs.keys()) )
        for jobId in filter( lambda x: not self.jobs.has_key(x), incompleteJobs.keys()):
-           j = Job(self.conn, jobId)
-	   self.jobs[jobId] = j
-           self.add(j)
+           self.add( Job(self.conn, jobId) )
 
 
    def add(self, job):
+       self.jobs[job.jobId] = job
        if self.unipattern.match(job.username):
           if job.username not in self.claimed:
              self.claimed[job.username] = deque()
@@ -89,7 +89,7 @@ class JobQueue(object):
 
 
    def remove(self, removedJobs):
-       for n in filter( lambda x: x in jobs):
+       for n in filter( lambda x: x in self.jobs, removedJobs):
            if n in self.unclaimed:
               self.unclaimed.remove(n)
            else:
@@ -97,6 +97,7 @@ class JobQueue(object):
               self.claimed[username].remove(n)
               if ( len(self.claimed[username]) == 0 ):
                  del self.claimed[username]
+           del self.jobs[n]
 
    def getClaimedJobs(self, username):
        if username in self.claimed:

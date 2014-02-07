@@ -28,7 +28,7 @@ class PageServerAuth(object):
    def authorizeJobs(self, selectedJobs, errorcb):
        print 'Entering authorizeJobs'
        print repr(selectedJobs)
-       requestId=self.idGenerator.get()
+       requestId=self.idGenerator()
 
        for j in selectedJobs:
           url = '/atg/PageServer/query/%s/%s/%.5x/%d' % (self.hostname, j.username, requestId, j.pages)
@@ -40,8 +40,7 @@ class PageServerAuth(object):
           root = ET.fromstring(xml)
           queryResponse = root.find('queryResponse').attrib
           if queryResponse['Authorized'] == 'True':
-               error_message('Releasing jobId:%s' % (j.jobId,))
-               self.releaseJob(j, queryResponse['reqId'])
+               self.releaseJob(j, queryResponse['reqId'], errorcb)
           else:
                errorcb('Insufficient Quota')
 
@@ -49,9 +48,12 @@ class PageServerAuth(object):
    def releaseJob(self, job, requestId, errorcb):
 
        self.conn.moveJob(job_id=job.jobId, job_printer_uri=self.privateUri)
+       # dear god no, not a busy while loop.  there has to be a subscription / event
+       # driven fix that will handle this better.  Left in for now, in the interest
+       # of rapid prototyping (because errors never happen in demos)
        waiting = True
        while waiting:
-           attr = conn.getJobAttributes(job.jobId)
+           attr = self.conn.getJobAttributes(job.jobId)
            if attr['time-at-completed'] is not None:
               waiting = False
               if attr['job-state-reasons'] == 'job-completed-successfully':
