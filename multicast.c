@@ -282,7 +282,7 @@ struct ip_mreq     group;
 int                sd;
 
 
-#define BUFSIZE 295
+#define BUFSIZE 294
 
 /* Records widths and offsets */
 #define UUIDSIZE 32

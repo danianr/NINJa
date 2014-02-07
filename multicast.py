@@ -45,9 +45,8 @@ class MulticastMember(object):
           m = self.inet4pattern.match(dst)
           dst = '%.3d.%.3d.%.3d.%.3d' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
 
-          data = '%32s%128s%.20lu%.5u%1u%15s%15s%-15s%-63s\n' % ( uuid, job.sha512, job.creation, job.pages, 
-                                job.duplex, src, dst, job.username, job.title[:63] )
-          print data
+          data = '%32s%128s%.20lu%.5u%1u%15s%15s%-15s%-63s' % ( uuid, job.sha512, job.creation,
+                                 job.pages, job.duplex, src, dst, job.username, job.title[:63] )
           s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
           s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.ttl)
           s.bind(('', socket.INADDR_ANY))
