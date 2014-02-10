@@ -48,6 +48,9 @@ class Controller(object):
                                       conn=self.conn,
                                       authHandler=self.authorize.authorizeJobs,
                                       logoutCb=self.logoutCallback,
+                                      lockQueue=self.lockQueue,
+                                      unlockQueue=self.unlockQueue,
+                                      updateQueue=self.updateQueue,
                                       master=self.tk)
 
       else:

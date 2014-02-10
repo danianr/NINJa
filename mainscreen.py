@@ -6,15 +6,10 @@ import cups
 
 
 
-def errorcb(errmessage):
-    errormessage
-
-
-
-
 class MainScreen(Frame):
-   def __init__(self, selectedList, username, jobqueue, cloudAdapter, conn=None,
-                  authHandler=None,  logoutCb=None, master=None, **cnf):
+   def __init__(self, selectedList, username, jobqueue, cloudAdapter, conn,
+                  authHandler,  logoutCb, lockQueue, unlockQueue, updateQueue,
+                  master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.pack(expand=YES, fill=BOTH)
        self.tk  = master
@@ -28,15 +23,15 @@ class MainScreen(Frame):
        self.hpane = PanedWindow(orient=HORIZONTAL, width=1180,height=940)
        self.vpane = PanedWindow(orient=VERTICAL,width=560,height=940)
        self.mdisplay = Label(textvar=self.messages)
-       self.local = LocalFrame(selectedList, username, jobqueue, conn, authHandler)
-       self.remote = RemoteFrame(selectedList, username, cloudAdapter, conn, authHandler)
+       self.local = LocalFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue)
+       self.remote = RemoteFrame(selectedList, username, cloudAdapter, conn, authHandler, lockQueue, unlockQueue, updateQueue)
        self.hpane.add(self.local)
        self.vpane.add(self.remote)
        self.vpane.add(self.mdisplay)
        self.hpane.add(self.vpane)
        self.notebook.add(self.hpane)
        self.notebook.tab(0, text=username)
-       self.unclaimed = UnclaimedFrame(selectedList, username, jobqueue, conn, authHandler)
+       self.unclaimed = UnclaimedFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue)
        self.notebook.add(self.unclaimed)
        self.notebook.tab(1, text="Unclaimed jobs")
        self.notebook.pack(side=TOP, fill=BOTH, expand=Y)
@@ -98,7 +93,7 @@ class MainScreen(Frame):
 
 class LocalFrame(Frame):
    def __init__(self, selectedList, username, jobqueue,
-                 conn=None, authHandler=None, master=None, **cnf):
+                 conn, authHandler, lockQueue, unlockQueue, updateQueue, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.jq = jobqueue
        self.pack(expand=YES, fill=BOTH)
@@ -115,7 +110,10 @@ class LocalFrame(Frame):
        self.jobs = dict()
        self.currentDisplay = []
        self.loggedInUsername=username
-       self.jq.refresh()
+       self.lockQueue = lockQueue
+       self.unlockQueue = unlockQueue
+       self.updateQueue = updateQueue
+       self.updateQueue()
        self.nextRefresh = self.after_idle(self.refresh)
        self.joblist.bind('<Return>', self.handleAuth, add=True)
        switchToLocal = 'tk::TabToWindow [tk_focusNext %s]' % (self._w,)
@@ -126,6 +124,7 @@ class LocalFrame(Frame):
 
    def handleAuth(self, event=None):
        self.after_cancel(self.nextRefresh)
+       self.lockQueue()
        del self.selectedList[:]
        positionMapping=[]
        filter(lambda (i, j): positionMapping.append(j), self.currentDisplay)
@@ -133,12 +132,14 @@ class LocalFrame(Frame):
            print 'Adding jobId:%d to selectedList' % (j.jobId,)
            self.selectedList.append(j)
        self.auth(self.selectedList, errorcb)
+       self.unlockQueue()
        self.nextRefresh = self.after_idle(self.refresh)
 
 
    def refresh(self, event=None):
        self.after_cancel(self.nextRefresh)
-       self.jq.refresh()
+       self.updateQueue()
+       self.lockQueue()
        displayJobs = self.jq.getClaimedJobs(self.loggedInUsername)
        if displayJobs != self.currentDisplay:
           self.joblist.delete(0,len(self.currentDisplay) )
@@ -147,13 +148,14 @@ class LocalFrame(Frame):
                  self.joblist.insert(self.joblist.size(), job)
           self.joblist.update_idletasks()
           self.currentDisplay = displayJobs
+       self.unlockQueue()
        self.nextRefresh = self.after(6000, self.refresh)
 
 
 class RemoteFrame(Frame):
 
    def __init__(self, selectedList, username, cloudAdapter,
-                 conn=None, authHandler=None, master=None, **cnf):
+                 conn, authHandler, lockQueue, unlockQueue, updateQueue, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.cloudAdapter = cloudAdapter
        self.pack(expand=YES, fill=BOTH)
@@ -209,7 +211,7 @@ class RemoteFrame(Frame):
 
 class UnclaimedFrame(Frame):
    def __init__(self, selectedList, username, jobqueue,
-                 conn=None, authHandler=None, master=None, **cnf):
+                 conn, authHandler, lockQueue, unlockQueue, updateQueue, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.jq = jobqueue
        self.pack(expand=YES, fill=BOTH)
@@ -226,25 +228,31 @@ class UnclaimedFrame(Frame):
        self.jobs = dict()
        self.currentDisplay = []
        self.loggedInUsername=username
-       self.jq.refresh()
+       self.lockQueue = lockQueue
+       self.unlockQueue = unlockQueue
+       self.updateQueue = updateQueue
+       self.updateQueue()
        self.nextRefresh = self.after_idle(self.refresh)
        self.joblist.bind('<Return>', self.handleAuth, add=True)
 
    def handleAuth(self, event=None):
        self.after_cancel(self.nextRefresh)
+       self.lockQueue()
        del self.selectedList[:]
        positionMapping=[]
        filter(lambda (i, j): positionMapping.append(j), self.currentDisplay)
        for j in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
            print 'Adding jobId:%d to selectedList' % (j.jobId,)
            self.selectedList.append(j)
-       self.auth(self.selectedList)
+       self.auth(self.selectedList, errorcb)
+       self.unlockQueue()
        self.nextRefresh = self.after_idle(self.refresh)
 
 
    def refresh(self, event=None):
        self.after_cancel(self.nextRefresh)
-       self.jq.refresh()
+       self.updateQueue()
+       self.lockQueue()
        displayJobs = self.jq.getUnclaimedJobs()
        if displayJobs != self.currentDisplay:
           self.joblist.delete(0,len(self.jobs) )
@@ -253,5 +261,6 @@ class UnclaimedFrame(Frame):
                  self.joblist.insert(self.joblist.size(), job)
           self.joblist.update_idletasks()
           self.currentDisplay = displayJobs
+       self.unlockQueue()
        self.nextRefresh = self.after(6000, self.refresh)
 
