@@ -25,7 +25,7 @@ class CloudAdapter(object):
        index = []
        for raw in self.getHeaders(username):
            (uuid, sha512, created, pageinfo, ipaddr,
-            printer, username, title ) = raw.split(':', 8)
+            printer, username, title ) = raw.split('\034', 8)
            created = datetime.fromtimestamp(int(created))
            
            print 'ip:%s printer:%s user:%s' % (ipaddr, printer, username)

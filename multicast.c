@@ -242,9 +242,13 @@ void control_channel(char **socketpath){
                   strncpy(uuid,   j->uuid,    32);
                   strncpy(sha512, j->sha512, 128);
                   strncpy(title,  j->title,   64);
-                  
-                  dprintf(clifd, "%32s:%128s:%lu:%u:%s:%s:%s:%s\n", uuid, sha512, j->created, j->pageinfo,
-									   client, printer, username, title);
+
+                  /* While the colon is visually nice, it appears too often in the title,
+                     thus the use of the ASCII Field Separator (fs) character, a non-printing
+                     character of decimal value 28 (034); newlines are not allowed so they
+                     still represent a logical record separator as opposed to the ASCII (036) */
+                  dprintf(clifd, "%32s\034%128s\034%lu\034%u\034%s\034%s\034%s\034%s\n", 
+                          uuid, sha512, j->created, j->pageinfo, client, printer, username, title);
                   j=j->next;
                 }
 
