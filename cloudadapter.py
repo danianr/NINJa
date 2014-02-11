@@ -28,7 +28,6 @@ class CloudAdapter(object):
             printer, username, title ) = raw.split('\034', 8)
            created = datetime.fromtimestamp(int(created))
            
-           print 'ip:%s printer:%s user:%s' % (ipaddr, printer, username)
            pageinfo = int(pageinfo)
            if (pageinfo % 2 == 0):
               duplex = False
@@ -39,7 +38,16 @@ class CloudAdapter(object):
            else:
               duplex = True
               sheets = (pageinfo + 1 ) >> 2
-           client = 'foo'
+           try:
+              (printer, aliases, ip_list) = gethostbyaddr(printer)
+           except:
+              printer = 'UNKOWN'
+
+           try:
+              (client, aliases, ip_list)  = gethostbyaddr(ipaddr)
+           except:
+              client = 'unknown'
            displaystr = '%s  %s  %d   %s' % ( client, created.strftime('%a %I:%M:%S %p'), sheets, title[:32])
+           print '(%s, %s, %s, %s)\n' % (uuid, sha512, printer, displaystr) 
            index.append((uuid, sha512, printer, displaystr))
        return index 

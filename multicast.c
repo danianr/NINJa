@@ -36,14 +36,14 @@ struct jobinfo {
 
 struct userqueue {
     char username[16];
-    unsigned long updated;
+    unsigned long cleaned;
     struct jobinfo *head;
 };
 
 
 struct circular_queue {
     struct userqueue *queue;
-    unsigned long *updated;
+    unsigned long *cleaned;
     struct circular_queue  *prev;
     struct circular_queue  *next;
 };
@@ -73,16 +73,36 @@ unsigned long clean_queue(struct userqueue *q, unsigned long duration){
 void reaper(struct circular_queue *q){
    unsigned int sleeptime = 6;
    unsigned int sleepevery = 100;
+   unsigned int counter = 1;
    int shutdown = 0;
-   unsigned long examine, counter=0;
+ 
+   unsigned long examine;
 
    while (!shutdown){
       examine = time(NULL) - sleeptime;
-      if ( *q->updated < examine ) clean_queue(q->queue, EXPIRE_TIME);
+      if ( *q->cleaned < examine ) clean_queue(q->queue, EXPIRE_TIME);
       q = q->next;
-      if ( (counter++ % sleepevery) == 1) sleep(sleeptime);
+      if ( (counter++ % sleepevery) == 1) {
+         counter = 0;
+         sleep(sleeptime);
+      }
    }
    return;
+}
+
+
+struct jobinfo *find_job(struct userqueue *q, char *uuid,
+                         unsigned long created, struct in_addr *dst){
+     struct jobinfo *j;
+
+     j = q->head;
+     while (j != NULL){
+        if ( j->created == created  &&
+             (memcmp(&j->dst, dst, sizeof(struct in_addr)) == 0 )  &&
+             (strncmp(j->uuid, uuid, 32) == 0) ) return j;
+        j = j->next;
+     }
+     return j;
 }
 
 
@@ -91,9 +111,14 @@ void append_job(struct userqueue *q, char *username, char *sha512, char *uuid,
                 struct in_addr *src, struct in_addr *dst){
 
      struct jobinfo *j, *p;
-     long *d;
-     d = (long *) malloc(sizeof(long));
-     q->updated = clean_queue(q, EXPIRE_TIME);
+     q->cleaned = clean_queue(q, EXPIRE_TIME);
+
+     /* don't allocate memory or add job if it exists already
+        even though jobs are uniquely identified by uuid and
+        the cups server to which it was submitted, creation
+        time is a much eaiser first pass comparison */
+     if ( find_job(q, uuid, created, dst) ) return;
+
      j = (struct jobinfo *) malloc(sizeof(struct jobinfo));
      memset(j, 0, sizeof(struct jobinfo));
 
@@ -111,13 +136,29 @@ void append_job(struct userqueue *q, char *username, char *sha512, char *uuid,
          q->head = j;
      }else{
          p = q->head;
-         while (p->next){
+
+         /* Progress through the joblist until the next
+            slot is either NULL or occupied by a job of
+            equal or greater creation time */
+
+         while (p->next && (p->next->created < created) ){
             p = p->next;
+         }
+
+         /* If the next slot is non-NULL, then move that
+            slot's jobinfo into the next address of this
+            new jobinfo structure and change the p->next
+            to point to our new structure, inserting it
+            before the occupied slot */
+
+         if ( p->next ){
+            j->next = p->next;
          }
          p->next = j;
      }
         
 }
+
 
 
 #define INDEX_REQUEST 1
@@ -237,8 +278,8 @@ void control_channel(char **socketpath){
                   char *serv;
                   memset(client,  0, 256);
                   memset(printer, 0, 256);
-                  inet_ntop(AF_INET, &j->src, client, sizeof(struct in_addr));
-                  inet_ntop(AF_INET, &j->dst, printer, sizeof(struct in_addr));
+                  inet_ntop(AF_INET, &j->src, client, 256);
+                  inet_ntop(AF_INET, &j->dst, printer, 256);
                   strncpy(uuid,   j->uuid,    32);
                   strncpy(sha512, j->sha512, 128);
                   strncpy(title,  j->title,   64);
@@ -511,14 +552,14 @@ int main(int argc, char **argv){
            circular->queue = queue;
            circular->next = circular;
            circular->prev = circular;
-           circular->updated = &queue->updated;
+           circular->cleaned = &queue->cleaned;
            pthread_create(&reaper_tid, NULL, (void *) &reaper, circular);
         }else{
            /* Prepend the new queue to the circular queue, ensuring a full cycle
               before it is reached */
            c = (struct circular_queue *) malloc(sizeof(struct circular_queue));
            c->queue = queue;
-           c->updated = &queue->updated;
+           c->cleaned = &queue->cleaned;
            c->next = circular;
            c->prev = circular->prev;
            circular->prev->next = c;
