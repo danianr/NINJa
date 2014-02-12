@@ -23,15 +23,15 @@ class MainScreen(Frame):
        self.hpane = PanedWindow(orient=HORIZONTAL, width=1180,height=940)
        self.vpane = PanedWindow(orient=VERTICAL,width=560,height=940)
        self.mdisplay = Label(textvar=self.messages)
-       self.local = LocalFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue)
-       self.remote = RemoteFrame(selectedList, username, cloudAdapter, conn, authHandler, lockQueue, unlockQueue, updateQueue)
+       self.local = LocalFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorcb)
+       self.remote = RemoteFrame(selectedList, username, jobqueue, cloudAdapter, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorcb)
        self.hpane.add(self.local)
        self.vpane.add(self.remote)
        self.vpane.add(self.mdisplay)
        self.hpane.add(self.vpane)
        self.notebook.add(self.hpane)
        self.notebook.tab(0, text=username)
-       self.unclaimed = UnclaimedFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue)
+       self.unclaimed = UnclaimedFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorcb)
        self.notebook.add(self.unclaimed)
        self.notebook.tab(1, text="Unclaimed jobs")
        self.notebook.pack(side=TOP, fill=BOTH, expand=Y)
@@ -93,7 +93,7 @@ class MainScreen(Frame):
 
 class LocalFrame(Frame):
    def __init__(self, selectedList, username, jobqueue,
-                 conn, authHandler, lockQueue, unlockQueue, updateQueue, master=None, **cnf):
+                 conn, authHandler, lockQueue, unlockQueue, updateQueue, errorcb, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.jq = jobqueue
        self.pack(expand=YES, fill=BOTH)
@@ -154,8 +154,8 @@ class LocalFrame(Frame):
 
 class RemoteFrame(Frame):
 
-   def __init__(self, selectedList, username, cloudAdapter,
-                 conn, authHandler, lockQueue, unlockQueue, updateQueue, master=None, **cnf):
+   def __init__(self, selectedList, username, jobqueue, cloudAdapter,
+                 conn, authHandler, lockQueue, unlockQueue, updateQueue, errorcb, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.cloudAdapter = cloudAdapter
        self.pack(expand=YES, fill=BOTH)
@@ -164,6 +164,8 @@ class RemoteFrame(Frame):
        self.joblist = Listbox(master=self, font='TkFixedFont', height=40, width=60)
        self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
        self.selectedList = selectedList
+       self.jq = jobqueue
+       self.updateQueue = updateQueue
        self.auth=authHandler
        if conn is None:
           self.conn = cups.Connection()
@@ -184,11 +186,20 @@ class RemoteFrame(Frame):
        self.after_cancel(self.nextRefresh)
        del self.selectedList[:]
        positionMapping=[]
+       remoteJobIds = []
        filter(lambda (u, s, p, l): positionMapping.append(l), self.currentDisplay)
        for l in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
-           (uuid, printer, sha512) = self.jobs(l)
+           (uuid, printer, sha512, client, duplex, title) = self.jobs[l]
            print 'Adding remoteJob:(%s, %s, %s)  to selectedList' % (uuid, printer, sha512)
-           # Retreive the jobs here with the keeper.pl script
+           if self.cloudAdapter.retrieveJob(self.loggedInUsername, sha512, gridlist):
+              opts = dict()
+              opts['job-originating-user-name'] = self.loggedInUsername
+              opts['job-originating-host-name'] = client
+              jobId = self.conn.printFile('remote', localfilename, title, opts)
+              os.unlink(localfilename)
+              remoteJobIds.add(jobId)
+       self.updateQueue()
+       self.selectedList = map(lambda i: self.jq[i], remoteJobIds)
 
        self.auth(self.selectedList, errorcb)
        self.nextRefresh = self.after_idle(self.refresh)
@@ -201,9 +212,14 @@ class RemoteFrame(Frame):
           self.joblist.delete(0,len(self.jobs) )
           self.jobs.clear()
           if remoteIndex is not None:
-             for (uuid, sha512, printer, line) in remoteIndex:
-                 self.jobs[line] = (uuid, printer, sha512)
-                 self.joblist.insert(self.joblist.size(), line)
+             localjobs = set()
+             localjobs.update(map(lambda x: x.uuid, self.jq.getClaimedJobs(self.loggedInUsername)))
+
+             for (uuid, sha512, created, sheets, duplex, client, printer, username, title) in remoteIndex:
+                 if uuid not in localjobs:
+                    line = '%s  %s  %d   %s' % ( client, created.strftime('%a %I:%M:%S %p'), sheets, title[:32])
+                    self.jobs[line] = (uuid, sha512, client, duplex, title)
+                    self.joblist.insert(self.joblist.size(), line)
           self.joblist.update_idletasks()
           self.currentDisplay = remoteIndex
        self.nextRefresh = self.after(6000, self.refresh)
@@ -211,7 +227,7 @@ class RemoteFrame(Frame):
 
 class UnclaimedFrame(Frame):
    def __init__(self, selectedList, username, jobqueue,
-                 conn, authHandler, lockQueue, unlockQueue, updateQueue, master=None, **cnf):
+                 conn, authHandler, lockQueue, unlockQueue, updateQueue, errorcb, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.jq = jobqueue
        self.pack(expand=YES, fill=BOTH)
