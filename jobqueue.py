@@ -99,15 +99,23 @@ class JobQueue(object):
                  del self.claimed[username]
            del self.jobs[n]
 
+
    def getClaimedJobs(self, username):
        if username in self.claimed:
           return map(lambda x: (x, self.jobs[x]), self.claimed[username])
        else:
           return None
 
+
+   def getClaimedUuids(self,username):
+       uuids = []
+       if username in self.claimed:
+          uuids = map(lambda j: j.uuid, self.claimed[username])
+       return uuids
+
+
    def getUnclaimedJobs(self):
        if len(self.unclaimed) > 0:
-          
           return map(lambda x: (x, self.jobs[x]), self.unclaimed)
        else:
           return None
