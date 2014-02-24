@@ -37,7 +37,9 @@ class MulticastMember(object):
           m = self.uuidpattern.match(job.uuid)
           uuid = '%s%s%s%s%s' % (m.group(1), m.group(2), m.group(3), m.group(4), m.group(5))
 
-          src = socket.gethostbyname(job.hostname)
+          print 'Job id:[%d] uuid:[%s] hostname is:[%s]\n' % (job.jobId, job.uuid, job.hostname)
+          src = socket.gethostbyname('localhost')
+          #src = socket.gethostbyname(job.hostname)
           m = self.inet4pattern.match(src)
           src = '%.3d.%.3d.%.3d.%.3d' % (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))
 

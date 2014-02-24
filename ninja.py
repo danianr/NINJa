@@ -1,5 +1,7 @@
 import Tkinter
 import cups
+import os
+import socket
 from controller import Controller
 
 

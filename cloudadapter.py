@@ -70,15 +70,21 @@ class CloudAdapter(object):
            else:
               duplex = True
               sheets = (pageinfo + 1 ) >> 2
-           try:
-              (printer, aliases, ip_list) = gethostbyaddr(printer)
-           except:
-              printer = 'UNKOWN'
+           if printer is not None:
+              try:
+                  (printer, aliases, ip_list) = gethostbyaddr(printer)
+              except:
+                  printer = 'UNKNOWN'
+           else:
+              printer = 'UNKNOWN'
 
-           try:
-              (client, aliases, ip_list)  = gethostbyaddr(ipaddr)
-           except:
-              client = 'unknown'
+           if ipaddr is not None:
+              try:
+                  (client, aliases, ip_list)  = gethostbyaddr(ipaddr)
+              except:
+                  client = 'unknown'
+           else:
+              client = 'localhost'
            index.append((uuid, sha512, created, sheets, duplex, client, printer, username, title))
        return index 
 
