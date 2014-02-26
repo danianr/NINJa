@@ -10,6 +10,12 @@ class CloudAdapter(object):
        self.sftp = '/usr/bin/sftp'
        self.landing = '/tmp'
        self.remote_path = '/spare/remote'
+       if not os.path.exists(self.controlpath):
+          e = OSError()
+          e.errno=2
+          e.strerror='No such file or directory'
+          e.filename=path
+          raise e
 
 
    def _getfile(self, cmd):

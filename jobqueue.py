@@ -11,7 +11,14 @@ class Job(object):
        self.jobId = jobId
        self.authenticated = False
        printerUri = conn.getJobAttributes(jobId).get('printer-uri')
+
+       # This will raise an IPPError if the job has not finished transferring
+       # in the form of IPPError: (1030, 'client-error-not-found')
        doc = conn.getDocument(printerUri, jobId, 1)
+
+       # Note that the getDocument command must be issued prior to requesting
+       # detailed job attributes such as document-format, job-originating-host-name
+       # and job-originating-user-name, otherwise these attributes will be blank
        digest_cmd = '/usr/bin/openssl dgst -sha512 %s' % ( doc['file'] )
        pagecount_cmd = './pagecount.sh %s %s' % ( doc['document-format'], doc['file'] )
        sha512 = popen(digest_cmd).read()
@@ -27,14 +34,17 @@ class Job(object):
        self.title = attr['job-name'].encode('ascii','replace')
        self.displayTitle = self.title[:47]
        self.jobState = attr['job-state']
+
        if ( attr.has_key('Duplex')  and attr['Duplex'] == u'DuplexNoTumble' ):
            self.duplex = True
 	   self.pages = self.pages % 2 + self.pages / 2
        else:
            self.duplex = False
+
        # Use the initially supplied jobId for the returned hash value
        # defined using a lambda with a closure to make value immutable
        self.__hash__ = lambda : jobId
+
 
    def __cmp__(self, other):
        if self.creation < other.creation:
@@ -73,7 +83,12 @@ class JobQueue(object):
        incompleteJobs = self.conn.getJobs(which_jobs='not-completed')
        self.remove( filter( lambda x: not incompleteJobs.has_key(x), self.jobs.keys()) )
        for jobId in filter( lambda x: not self.jobs.has_key(x), incompleteJobs.keys()):
-           self.add( Job(self.conn, jobId) )
+           try:
+               j = Job(self.conn, jobId )
+               self.add(j)
+           except cups.IPPError as e:
+               print("caught an IPPError",e)
+               continue
 
 
    def add(self, job):
@@ -101,21 +116,24 @@ class JobQueue(object):
 
 
    def getClaimedJobs(self, username):
+       pairs = []
        if username in self.claimed:
-          return map(lambda x: (x, self.jobs[x]), self.claimed[username])
-       else:
-          return None
-
+          pairs.extend(map(lambda x: (x, self.jobs[x]), self.claimed[username]))
+       print pairs
+       return pairs
 
    def getClaimedUuids(self,username):
        uuids = []
        if username in self.claimed:
-          uuids = map(lambda j: j.uuid, self.claimed[username])
+          for jobid in self.claimed[username]:
+             urnuuid = self.jobs[jobid].uuid
+             uuids.append(urnuuid[9:])
+       print uuids
        return uuids
 
 
    def getUnclaimedJobs(self):
+       pairs = []
        if len(self.unclaimed) > 0:
-          return map(lambda x: (x, self.jobs[x]), self.unclaimed)
-       else:
-          return None
+          pairs.extend(map(lambda x: (x, self.jobs[x]), self.unclaimed))
+       return pairs

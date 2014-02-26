@@ -8,6 +8,7 @@ from cloudadapter import *
 import cups
 import re
 import random
+import time
 
 
 
@@ -30,11 +31,21 @@ class Controller(object):
       self.selected = list()
       self.authorize = PageServerAuth(authname,  lambda: random.uniform(16, 4294967295) )
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
-      self.mcast = MulticastMember('233.0.14.56', 34426, 7, unipattern)
+      self.mcast = MulticastMember('233.0.14.56', 34426, 17, unipattern)
       self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn,
                                            multicastHandler=self.mcast)
       self.nextQueueRefresh = self.tk.after_idle(self.updateQueue)
-      self.cloudAdapter = CloudAdapter('/tmp/keepersock')
+
+      
+      for attempts in range(3):
+         try:
+            self.cloudAdapter = CloudAdapter('/tmp/keepersock')
+            break
+         except OSError:
+            self.daemonlog = file('multicast.log', mode='a', buffering=0)
+            self.daemon = Popen('./multicast', stdin=None, stdout=self.daemonlog, stderr=STDOUT)
+            time.sleep(1)
+
 
    def authCallback(self, username, result):
       self.lockQueue()

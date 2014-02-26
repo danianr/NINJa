@@ -213,7 +213,7 @@ class RemoteFrame(Frame):
           self.jobs.clear()
           if remoteIndex is not None:
              localjobs = set()
-             localjobs.update(self.jq.getClaimedJobs(self.loggedInUsername))
+             localjobs.update(self.jq.getClaimedUuids(self.loggedInUsername))
 
              for (uuid, sha512, created, sheets, duplex, client, printer, username, title) in remoteIndex:
                  if uuid not in localjobs:
