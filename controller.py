@@ -29,7 +29,7 @@ class Controller(object):
       self.mainscreen = None
       self.conn = cups.Connection() 
       self.selected = list()
-      self.authorize = PageServerAuth(authname,  lambda: random.uniform(16, 4294967295) )
+      self.authorize = PageServerAuth(private, authname, lambda: random.uniform(16, 4294967295), self.conn)
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
       self.mcast = MulticastMember('233.0.14.56', 34426, 17, unipattern)
       self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn,

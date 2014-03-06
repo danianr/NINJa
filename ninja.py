@@ -1,7 +1,10 @@
 import Tkinter
 import cups
 import os
+import re
 import socket
+import telnetlib
+import time
 from controller import Controller
 
 
@@ -51,7 +54,7 @@ if __name__ == '__main__':
        print model.group(1), model.group(2)
        pjl.close()
 
-      conn.addPrinter(privatename, device='socket://%s' % (printername,) )
+       conn.addPrinter(privatename, device='socket://%s' % (printername,) )
 
    controller = Controller(privatename, ninjaname)
    controller.start()

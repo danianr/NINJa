@@ -12,11 +12,10 @@ uuidKey  = 'job-uuid'
 supportedUriKey = 'printer-uri-supported'
 
 class PageServerAuth(object):
-   def __init__(self, hostname, idGenerator, conn=None):
+   def __init__(self, private, hostname, idGenerator, conn=None):
        self.hostname   = hostname
        self.servername = 'wwwapp.cc.columbia.edu'
        self.idGenerator = idGenerator
-       private    = 'private'
        if conn is None:
           self.conn = cups.Connection()
        else:
