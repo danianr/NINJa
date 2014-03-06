@@ -41,6 +41,16 @@ if __name__ == '__main__':
 
 
    if (privatename, None) not in cupsDestinations:
+       modelsRE = [ re.compile('(?i).*"(HP) (LaserJet P4515)"'), re.compile('(?i).*"(hp) (LaserJet 9050)"') ]
+       drivermap = dict()
+       pjlcmd = '\033%-12345X@PJL\n@PJL INFO ID\n'
+       pjl = telnetlib.Telnet(printername, 9100, 7)
+       pjl.write(pjlcmd)
+       time.sleep(10)
+       (n, model, string)  = pjl.expect(modelsRE)
+       print model.group(1), model.group(2)
+       pjl.close()
+
       conn.addPrinter(privatename, device='socket://%s' % (printername,) )
 
    controller = Controller(privatename, ninjaname)
