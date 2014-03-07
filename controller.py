@@ -19,7 +19,7 @@ class Controller(object):
          self.tk = tk
       else:
          self.tk = Tk()
-      self.tk['width'] = 1200
+      self.tk['width'] = 1280
       self.tk['height'] = 1024
 
       self.publicName = public
@@ -52,6 +52,7 @@ class Controller(object):
       self.login = None
       if result == True:
          self.loggedInUsername = username
+         self.tk.wm_deiconify()
          self.mainscreen = MainScreen(selectedList=self.selected,
                                       username=self.loggedInUsername,
                                       jobqueue=self.jobqueue,
@@ -74,6 +75,7 @@ class Controller(object):
        self.mainscreen = None
        self.unlockQueue()
        self.login = AuthDialog(self.authCallback, master=self.tk)
+       self.tk.wm_withdraw()
        print self.login.bindtags()
        print self.login.bind('<Key-Tab>')
        print '=======[ Toplevel ]======='
@@ -111,6 +113,7 @@ class Controller(object):
          #self.conn.acceptJobs(self.publicName)
          print 'Starting Controller and accepting incoming jobs'
          self.login = AuthDialog(self.authCallback, master=self.tk)
+         self.tk.wm_withdraw()
          print self.login.bindtags()
          print self.login.bind('<Key-Tab>')
          print '=======[ Toplevel ]======='
