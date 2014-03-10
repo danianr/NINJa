@@ -71,10 +71,12 @@ class MessageDisplay(object):
 
    def registerMessageFrame(self, messageFrame):
        self.messageFrame = messageFrame
-       self.displayLabel = Label(textvar=self.message, master=self.messageFrame)
+       self.displayLabel = Tkinter.Label(textvar=self.message, master=self.messageFrame)
        self.displayLabel.pack()
        self.messageFrame.pack()
 
+   def registerErrorCallback(self, errorcb):
+       self.errorcb = errorcb
 
    def update(self):
        if self.messageFrame is None:

@@ -3,6 +3,7 @@ from authdialog import AuthDialog
 from mainscreen import MainScreen
 from multicast import MulticastMember
 from pageserver import PageServerAuth
+from MessageDisplay import MessageDisplay
 from jobqueue import *
 from cloudadapter import *
 import cups
@@ -29,7 +30,9 @@ class Controller(object):
       self.mainscreen = None
       self.conn = cups.Connection() 
       self.selected = list()
-      self.authorize = PageServerAuth(private, authname, lambda: random.uniform(16, 4294967295), self.conn)
+      self.messageDisplay = MessageDisplay()
+      self.authorize = PageServerAuth(private, authname, lambda: random.uniform(16, 4294967295), 
+                                      self.messageDisplay, self.conn)
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
       self.mcast = MulticastMember('233.0.14.56', 34426, 17, unipattern)
       self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn,
@@ -59,6 +62,7 @@ class Controller(object):
                                       cloudAdapter=self.cloudAdapter,
                                       conn=self.conn,
                                       authHandler=self.authorize.authorizeJobs,
+                                      messageDisplay=self.messageDisplay,
                                       logoutCb=self.logoutCallback,
                                       lockQueue=self.lockQueue,
                                       unlockQueue=self.unlockQueue,

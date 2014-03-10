@@ -8,7 +8,7 @@ import cups
 
 class MainScreen(Frame):
    def __init__(self, selectedList, username, jobqueue, cloudAdapter, conn,
-                  authHandler,  logoutCb, lockQueue, unlockQueue, updateQueue,
+                  authHandler,  messageDisplay, logoutCb, lockQueue, unlockQueue, updateQueue,
                   master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.pack(expand=YES, fill=BOTH)
@@ -16,13 +16,14 @@ class MainScreen(Frame):
        self.notebook = Notebook(master=self)
        self.instructions = StringVar()
        self.instructions.set('Left arrow selects Local jobs, Right arrow selects remote jobs, Enter prints')
-       self.messages = StringVar()
-       self.messages.set('Hello World!')
+       self.messageDisplay = messageDisplay
        self.instrbar = Label(textvar=self.instructions, master=self)
        self.instrbar.pack(side=BOTTOM, fill=X, expand=N)
        self.hpane = PanedWindow(orient=HORIZONTAL, width=1180,height=940)
        self.vpane = PanedWindow(orient=VERTICAL,width=560,height=940)
-       self.mdisplay = Label(textvar=self.messages)
+       self.mdisplay = Frame()
+       self.messageDisplay.registerMessageFrame(self.mdisplay)
+       self.messageDisplay.registerErrorCallback(self.errorCallback)
        self.local = LocalFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorCallback)
        self.remote = RemoteFrame(selectedList, username, jobqueue, cloudAdapter, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorCallback)
        self.hpane.add(self.local)

@@ -12,10 +12,11 @@ uuidKey  = 'job-uuid'
 supportedUriKey = 'printer-uri-supported'
 
 class PageServerAuth(object):
-   def __init__(self, private, hostname, idGenerator, conn=None):
+   def __init__(self, private, hostname, idGenerator, display, conn=None):
        self.hostname   = hostname
        self.servername = 'wwwapp.cc.columbia.edu'
        self.idGenerator = idGenerator
+       self.messageDisplay = display
        if conn is None:
           self.conn = cups.Connection()
        else:
@@ -42,6 +43,7 @@ class PageServerAuth(object):
                self.releaseJob(j, queryResponse['reqId'], errorcb)
           else:
                errorcb('Insufficient Quota')
+               self.messageDisplay.quota(root, 'queryResponse', True)
 
 
    def releaseJob(self, job, requestId, errorcb):
@@ -67,6 +69,7 @@ class PageServerAuth(object):
        resp = http.getresponse()
        print resp.status, resp.reason
        xml = resp.read()
-       print xml
        root = ET.fromstring(xml)
        deductResponse = root.find('deductResponse').attrib
+       self.messageDisplay.quota(root, 'deductResponse')
+       self.messageDisplay.bulletin(root, 'bulletin')
