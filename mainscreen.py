@@ -24,6 +24,14 @@ class MainScreen(Frame):
        self.mdisplay = Frame()
        self.messageDisplay.registerMessageFrame(self.mdisplay)
        self.messageDisplay.registerErrorCallback(self.errorCallback)
+       for tag in self.notebook.bindtags():
+          print '=======[ %s ]=======' % (tag,)
+          print self.notebook.bind_class(tag)
+          for k in self.notebook.bind_class(tag):
+             print '----> Binding: %s' % (k,)
+             print self.notebook.bind_class(tag, k )
+
+
        self.local = LocalFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorCallback)
        self.remote = RemoteFrame(selectedList, username, jobqueue, cloudAdapter, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorCallback)
        self.hpane.add(self.local)
@@ -223,6 +231,7 @@ class RemoteFrame(Frame):
                     self.joblist.insert(self.joblist.size(), line)
           self.joblist.update_idletasks()
           self.currentDisplay = remoteIndex
+       self.event_generate('<<Bulletin>>')
        self.nextRefresh = self.after(6000, self.refresh)
 
 

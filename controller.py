@@ -10,6 +10,9 @@ import cups
 import re
 import random
 import time
+import httplib
+import xml.etree.ElementTree as ET
+
 
 
 
@@ -31,6 +34,7 @@ class Controller(object):
       self.conn = cups.Connection() 
       self.selected = list()
       self.messageDisplay = MessageDisplay()
+      
       self.authorize = PageServerAuth(private, authname, lambda: random.uniform(16, 4294967295), 
                                       self.messageDisplay, self.conn)
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
@@ -80,19 +84,6 @@ class Controller(object):
        self.unlockQueue()
        self.login = AuthDialog(self.authCallback, master=self.tk)
        self.tk.wm_withdraw()
-       print self.login.bindtags()
-       print self.login.bind('<Key-Tab>')
-       print '=======[ Toplevel ]======='
-       print self.login.bind_class('Toplevel')
-       for k in self.login.bind_class('Toplevel'):
-          print '----> Binding: %s' % (k,)
-          print self.login.bind_class('Toplevel', k )
-       print '========[ Entry ]========='
-       print self.login.bind_class('Entry')
-       for k in self.login.bind_class('Entry'):
-          print '----> Binding: %s' % (k,)
-          print self.login.bind_class('Entry', k )
-
 
 
    def lockQueue(self):
@@ -112,24 +103,25 @@ class Controller(object):
       self.jobqueue.refresh()
       self.nextQueueRefresh = self.tk.after(4000, self.updateQueue)
 
+
+   def downloadBulletins(self, url):
+         slash = url[8:].index('/') + 8
+         servername = url[8:slash]
+         http = httplib.HTTPSConnection(servername)
+         http.request("GET", url)
+         resp = http.getresponse()
+         print resp.status, resp.reason
+         xml = resp.read()
+         root = ET.fromstring(xml)
+         self.messageDisplay.bulletin(root, 'bulletinBoard')
+         self.messageDisplay.update()
+
    def start(self):
-         #self.conn.enablePrinter(self.privateName)
-         #self.conn.acceptJobs(self.publicName)
+         self.conn.enablePrinter(self.privateName)
+         self.conn.acceptJobs(self.publicName)
          print 'Starting Controller and accepting incoming jobs'
          self.login = AuthDialog(self.authCallback, master=self.tk)
          self.tk.wm_withdraw()
-         print self.login.bindtags()
-         print self.login.bind('<Key-Tab>')
-         print '=======[ Toplevel ]======='
-         print self.login.bind_class('Toplevel')
-         for k in self.login.bind_class('Toplevel'):
-            print '----> Binding: %s' % (k,)
-            print self.login.bind_class('Toplevel', k )
-         print '========[ Entry ]========='
-         print self.login.bind_class('Entry')
-         for k in self.login.bind_class('Entry'):
-            print '----> Binding: %s' % (k,)
-            print self.login.bind_class('Entry', k )
          self.tk.mainloop()
 
    def stop(self):
@@ -139,5 +131,5 @@ class Controller(object):
          if self.login != None:
             self.login.destroy()
          self.tk.destroy()
-         #self.conn.rejectJobs(self.publicName)
-         #self.conn.disablePrinter(self.privateName)
+         self.conn.rejectJobs(self.publicName)
+         self.conn.disablePrinter(self.privateName)

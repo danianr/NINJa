@@ -10,7 +10,6 @@ class Bulletin(object):
    def __init__(self, id, message, begins, ends, precedence, imageURL=None):
        now = time.time()
        self.messageid = id
-       self.sig = int(base64.b64_decode(id).encode('hex'), 16)
        self.begins = begins
        self.ends   = ends
        self.precedence = precedence
@@ -26,66 +25,40 @@ class Bulletin(object):
        else:
           self.expired = False
 
-
-   def __eq__(x, y):
-        return x.messageid == y.messageid
-
-   def __ne__(x, y):
-        return x.messageid != y.messageid
-
-   def __hash__(self):
-        if self.id == 'quota':
-           return -1
-        else:
-           return self.sig % 2147483647
-           
-    # Lower precedence is a higher priority
-    # Reverse sorting should be used
-   def __cmp__(x, y):
-        return cmp(y.precedence, x.precedence)
-
-   def __gt__(x, y):
-        return y.precedence > x.precedence
-
-   def __ge__(x, y):
-        return x.precedence >= x.precedence
-
-   def __lt__(x, y):
-        return y.precedence < x.precedence
-
-   def __le__(x, y):
-        return y.precedence <= x.precedence
-
-
 class MessageDisplay(object):
 
    def __init__(self, population='Morningside', errorcb=None):
        self.population     = population
        self.messageFrame   = None
        self.errorcb        = errorcb
-       self.bulletins      = set()
+       self.bulletins      = dict()
        self.queue          = deque()
        self.message        = Tkinter.StringVar()
        self.defaultMessage = 'Welcome to the NINJa Printing System'
+       self.message.set(self.defaultMessage)
        
 
    def registerMessageFrame(self, messageFrame):
        self.messageFrame = messageFrame
-       self.displayLabel = Tkinter.Label(textvar=self.message, master=self.messageFrame)
+       self.messageFrame.bind_all('<<Bulletin>>', self.update)
+       self.displayLabel = Tkinter.Label(textvar=self.message, master=messageFrame)
        self.displayLabel.pack()
        self.messageFrame.pack()
 
    def registerErrorCallback(self, errorcb):
        self.errorcb = errorcb
 
-   def update(self):
+   def update(self, event=None):
+       if event is not None:
+          print('MessageDisplay.update() called from',repr(event))
        if self.messageFrame is None:
           return
 
        now = time.time()
-       qb = filter( lambda x: (x.messageid == 'quota'), self.bulletins)
-       if len(qb) > 0 and qb[0].ends > now:
-          self.message.set(qb[0].message)
+       if self.bulletins.has_key('qupta'):
+          qb = self.bulletins['quota']
+          if  qb.ends > now:
+              self.message.set(qb.message)
           return
 
        if len(self.queue):
@@ -101,7 +74,7 @@ class MessageDisplay(object):
                 self.message.set(b.message)
                 processQueue = False
        
-       self.queue.extend(filter( lambda x: (x.begins < now and x.ends > now), self.bulletins))
+       self.queue.extend(filter( lambda x: (x.begins < now and x.ends > now), self.bulletins.values()))
        
 
    def bulletin(self, xml, element):
@@ -116,9 +89,10 @@ class MessageDisplay(object):
           except:
             imageURL = None
           text = b.text
-          self.bulletins.add(Bulletin(id, text, begins, ends, precedence, imageURL))
+          msg = Bulletin(id, text, begins, ends, precedence, imageURL)
+          if not self.bulletins.has_key(msg.messageid):
+             self.bulletins[msg.messageid] = msg
           
-
 
    def quota(self, xml, element, insufficientQuota=False):
        quotas = xml.find(element)
