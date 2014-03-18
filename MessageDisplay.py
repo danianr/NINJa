@@ -10,8 +10,18 @@ class Bulletin(object):
    def __init__(self, id, message, begins, ends, precedence, imageURL=None):
        now = time.time()
        self.messageid = id
-       self.begins = begins
-       self.ends   = ends
+
+       #time fix for broken server response
+       if int(begins) < 100000000:
+          self.begins = int(begins) * 1000
+       else:
+          self.begins = int(begins)
+
+       if int(ends)  < 100000000:
+          self.ends = int(ends) * 1000
+       else:
+          self.ends   = ends
+
        self.precedence = precedence
        self.imageURL = imageURL
        self.message = message
@@ -49,19 +59,14 @@ class MessageDisplay(object):
        self.errorcb = errorcb
 
    def update(self, event=None):
-       if event is not None:
-          print('MessageDisplay.update() called from',repr(event))
-       if self.messageFrame is None:
-          return
-
        now = time.time()
-       if self.bulletins.has_key('qupta'):
+       if self.bulletins.has_key('quota'):
           qb = self.bulletins['quota']
           if  qb.ends > now:
               self.message.set(qb.message)
-          return
+              return
 
-       if len(self.queue):
+       if len(self.queue) > 0:
           processQueue = True
           while processQueue:
              b = self.queue.popleft()
