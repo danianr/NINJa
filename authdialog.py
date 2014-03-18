@@ -31,11 +31,8 @@ class AuthDialog(Toplevel):
        self.passwordEntry = Entry(passbox, textvar=self.password, show='*')
        self.usernameEntry.pack(side=RIGHT, fill=X)
        self.passwordEntry.pack(side=RIGHT, fill=X)
-       self.focusmodel(model="active")
-       self.focus_set()
-       self.tkraise()
        self.event_add('<<CloseDialog>>', '<Key-Escape>')
-       self.usernameEntry.bind('<Key-Return>', lambda e: self.passwordEntry.focus_set()  )
+       self.usernameEntry.bind('<Key-Return>', lambda e: self.passwordEntry.focus_set())
        self.passwordEntry.bind('<Key-Return>', self.authenticateKerberos )
        self.bind('<<CloseDialog>>', self.cleanup )
 
@@ -64,3 +61,7 @@ class AuthDialog(Toplevel):
    def cleanup(self, event):
        self.callback(self.username.get(), self.authenticated)
        self.destroy()
+
+
+   def takefocus(self):
+       self.usernameEntry.focus_set()

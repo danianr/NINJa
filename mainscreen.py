@@ -82,6 +82,10 @@ class MainScreen(Frame):
        self.notebook.select(nexttab)
        self.jobWidget[nexttab].focus_set()
 
+   def takefocus(self):
+       if self.local is not None and self.local.joblist is not None:
+             self.local.joblist.focus_set()
+
 
    def setInstructions(self, instructions):
        self.instrbar.set(instructions)

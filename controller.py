@@ -72,7 +72,7 @@ class Controller(object):
                                       unlockQueue=self.unlockQueue,
                                       updateQueue=self.updateQueue,
                                       master=self.tk)
-
+         self.mainscreen.takefocus()
       else:
          self.unlockQueue()
          self.loggedInUsername = None
@@ -82,7 +82,9 @@ class Controller(object):
        self.mainscreen.destroy()
        self.mainscreen = None
        self.unlockQueue()
+       self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
        self.login = AuthDialog(self.authCallback, master=self.tk)
+       self.login.takefocus()
        self.tk.wm_withdraw()
 
 
@@ -112,6 +114,7 @@ class Controller(object):
          resp = http.getresponse()
          print resp.status, resp.reason
          xml = resp.read()
+         print xml
          root = ET.fromstring(xml)
          self.messageDisplay.bulletin(root, 'bulletinBoard')
          self.messageDisplay.update()
@@ -121,6 +124,7 @@ class Controller(object):
          self.conn.acceptJobs(self.publicName)
          print 'Starting Controller and accepting incoming jobs'
          self.login = AuthDialog(self.authCallback, master=self.tk)
+         self.login.takefocus()
          self.tk.wm_withdraw()
          self.tk.mainloop()
 
