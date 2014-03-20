@@ -122,6 +122,7 @@ class LocalFrame(Frame):
           self.conn = conn
        self.jobs = dict()
        self.currentDisplay = []
+       self.errorcb = errorcb
        self.loggedInUsername=username
        self.lockQueue = lockQueue
        self.unlockQueue = unlockQueue
@@ -144,7 +145,7 @@ class LocalFrame(Frame):
        for j in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
            print 'Adding jobId:%d to selectedList' % (j.jobId,)
            self.selectedList.append(j)
-       self.auth(self.selectedList, errorcb)
+       self.auth(self.selectedList, self.errorcb)
        self.unlockQueue()
        self.nextRefresh = self.after_idle(self.refresh)
 
@@ -162,7 +163,7 @@ class LocalFrame(Frame):
           self.joblist.update_idletasks()
           self.currentDisplay = displayJobs
        self.unlockQueue()
-       self.nextRefresh = self.after(6000, self.refresh)
+       self.nextRefresh = self.after(850, self.refresh)
 
 
 class RemoteFrame(Frame):
@@ -186,6 +187,7 @@ class RemoteFrame(Frame):
           self.conn = conn
        self.jobs = dict()
        self.currentDisplay = []
+       self.errorcb = errorcb
        self.loggedInUsername=username
        self.nextRefresh = self.after_idle(self.refresh)
        self.joblist.bind('<Return>', self.handleAuth, add=True)
@@ -214,7 +216,7 @@ class RemoteFrame(Frame):
        self.updateQueue()
        self.selectedList = map(lambda i: self.jq[i], remoteJobIds)
 
-       self.auth(self.selectedList, errorcb)
+       self.auth(self.selectedList, self.errorcb)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
@@ -236,7 +238,7 @@ class RemoteFrame(Frame):
           self.joblist.update_idletasks()
           self.currentDisplay = remoteIndex
        self.event_generate('<<Bulletin>>')
-       self.nextRefresh = self.after(6000, self.refresh)
+       self.nextRefresh = self.after(1750, self.refresh)
 
 
 class UnclaimedFrame(Frame):
@@ -257,6 +259,7 @@ class UnclaimedFrame(Frame):
           self.conn = conn
        self.jobs = dict()
        self.currentDisplay = []
+       self.errorcb = errorcb
        self.loggedInUsername=username
        self.lockQueue = lockQueue
        self.unlockQueue = unlockQueue
@@ -274,7 +277,7 @@ class UnclaimedFrame(Frame):
        for j in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
            print 'Adding jobId:%d to selectedList' % (j.jobId,)
            self.selectedList.append(j)
-       self.auth(self.selectedList, errorcb)
+       self.auth(self.selectedList, self.errorcb)
        self.unlockQueue()
        self.nextRefresh = self.after_idle(self.refresh)
 
@@ -292,5 +295,5 @@ class UnclaimedFrame(Frame):
           self.joblist.update_idletasks()
           self.currentDisplay = displayJobs
        self.unlockQueue()
-       self.nextRefresh = self.after(6000, self.refresh)
+       self.nextRefresh = self.after(1100, self.refresh)
 
