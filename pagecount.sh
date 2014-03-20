@@ -1,9 +1,9 @@
 #!/bin/sh
 
-GHOSTSCRIPT=/usr/local/bin/gs
+GHOSTSCRIPT=/usr/bin/gs
 CUT=/usr/bin/cut
-GREP=/usr/bin/grep
-SED=/usr/bin/sed
+GREP=/bin/grep
+SED=/bin/sed
 REMOVE=/bin/rm
 
 FILETYPE="$1"
@@ -41,5 +41,5 @@ else
    echo 1
 fi
 
-$REMOVE ${TMPFILE} >& /dev/null
+$REMOVE ${TMPFILE} > /dev/null 2>&1
 exit $exit_status
