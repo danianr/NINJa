@@ -3,7 +3,7 @@ from authdialog import AuthDialog
 from mainscreen import MainScreen
 from multicast import MulticastMember
 from pageserver import PageServerAuth
-from MessageDisplay import MessageDisplay
+from messagedisplay import MessageDisplay
 from jobqueue import *
 from cloudadapter import *
 import cups
@@ -121,6 +121,8 @@ class Controller(object):
 
    def start(self):
          self.conn.enablePrinter(self.privateName)
+         self.conn.acceptJobs(self.privateName)
+         self.conn.disablePrinter(self.publicName, reason="NINJa release required")
          self.conn.acceptJobs(self.publicName)
          print 'Starting Controller and accepting incoming jobs'
          self.login = AuthDialog(self.authCallback, master=self.tk)
@@ -136,4 +138,5 @@ class Controller(object):
             self.login.destroy()
          self.tk.destroy()
          self.conn.rejectJobs(self.publicName)
+         self.conn.rejectJobs(self.privateName)
          self.conn.disablePrinter(self.privateName)

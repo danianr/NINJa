@@ -47,22 +47,25 @@ class PageServerAuth(object):
 
 
    def releaseJob(self, job, requestId, errorcb):
-
-       self.conn.moveJob(job_id=job.jobId, job_printer_uri=self.privateUri)
-       # dear god no, not a busy while loop.  there has to be a subscription / event
-       # driven fix that will handle this better.  Left in for now, in the interest
-       # of rapid prototyping (because errors never happen in demos)
-       waiting = True
-       while waiting:
-           attr = self.conn.getJobAttributes(job.jobId)
-           if attr['time-at-completed'] is not None:
-              waiting = False
-              if attr['job-state-reasons'] == 'job-completed-successfully':
-                 url = '/atg/PageServer/deduct/%s/%s/%s/%d' % (self.hostname, job.username,
+       try:
+          self.conn.moveJob(job_id=job.jobId, job_printer_uri=self.privateUri)
+          # dear god no, not a busy while loop.  there has to be a subscription / event
+          # driven fix that will handle this better.  Left in for now, in the interest
+          # of rapid prototyping (because errors never happen in demos)
+          waiting = True
+          while waiting:
+              attr = self.conn.getJobAttributes(job.jobId)
+              if attr['time-at-completed'] is not None:
+                 waiting = False
+                 if attr['job-state-reasons'] == 'job-completed-successfully':
+                    url = '/atg/PageServer/deduct/%s/%s/%s/%d' % (self.hostname, job.username,
                                                requestId, attr['job-media-sheets-completed'])
-              else:
-                 errorcb("There was a problem printing your document")
-                 
+                 else:
+                    errorcb("There was a problem printing your document")
+                    return
+       except cups.IPPError (status, description):
+          errorcb('IPPError %d: %s' % (status, description) )
+          return
                  
        http = httplib.HTTPSConnection(self.servername)
        http.request("GET", url)
@@ -70,6 +73,5 @@ class PageServerAuth(object):
        print resp.status, resp.reason
        xml = resp.read()
        root = ET.fromstring(xml)
-       deductResponse = root.find('deductResponse').attrib
        self.messageDisplay.quota(root, 'deductResponse')
        self.messageDisplay.bulletin(root, 'bulletin')
