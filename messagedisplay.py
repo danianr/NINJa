@@ -110,8 +110,6 @@ class MessageDisplay(object):
           
 
    def quota(self, xml, path, insufficientQuota=False):
-       print ET.tostring(xml)
-       print 'path spectified [%s]' % (path,)
 
        dollars     = xml.find(path + '/uni/dollars')
        aggregated  = xml.find(path + '/uni/aggregatedQuotas')
