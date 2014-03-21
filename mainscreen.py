@@ -2,6 +2,7 @@ from Tkinter import *
 from ttk import *
 from os import popen
 from jobqueue import *
+import time
 import cups
 
 
@@ -64,6 +65,7 @@ class MainScreen(Frame):
        self.bind_all('<Key-Tab>', self.switchView )
        self.bind_all('<Key-Escape>', self.logout )
        self.jobWidget =  ( self.local.joblist, self.unclaimed.joblist )
+       self.tk.update_idletasks()
 
    def errorCallback(self, message):
        err = Toplevel(master=self.tk)
@@ -71,7 +73,7 @@ class MainScreen(Frame):
        errlabel.pack()
        err.pack()
        print "Error: %s" % (message,)
-       self.tk.update_idle()
+       self.tk.update_idletasks()
        err.after(6000, err.destroy)
 
    def switchView(self, e):
@@ -134,6 +136,7 @@ class LocalFrame(Frame):
        self.unbind_all('<Key-Tab>')
        self.unbind_all('<Shift-Key-Tab>')
        self.bind_all('<Key-Left>', switchToLocal, add=False)
+       self.update_idletasks()
 
 
    def handleAuth(self, event=None):
