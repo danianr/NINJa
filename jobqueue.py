@@ -71,10 +71,11 @@ class JobMapping(object):
    # position.  Also takes a list of positions and returns
    # a tuple of Job objects associated with each
 
-   def __init__(self, iterable):
+   def __init__(self, iterable, username):
        self.timestamp = time.time()
        self.internal = list()
        self.internal.extend(iterable)
+       self.username = username
        self.dirty = False
 
    def isDirty(self):
@@ -84,19 +85,22 @@ class JobMapping(object):
        self.dirty = True
 
    def map(self, iterable):
-       return map(lambda i: self.internal[i], iterable)
+       return map(lambda i: self.internal[int(i)], iterable)
 
 
    # Only define getter accessors since this is technically
    # a read-only snapshot
-   def __getitem(self, x)__:
+   def __getitem__(self, x):
        return self.internal[x]
 
    def __getslice__(self, x, y):
        return self.internal[x:y]
 
+   def __len__(self):
+       return len(self.internal)
+
    def __iter__(self):
-       return iter(map(lambda j: j.__str__, self.internal))
+       return iter(map(lambda j: j.__str__(), self.internal))
 
 
 class JobQueue(object):
@@ -110,28 +114,32 @@ class JobQueue(object):
        self.refreshReq = deque()
        self.claimedMapFrame   = None
        self.unclaimedMapFrame = None
-       self.mimimumRefreshPeriod = 45	# seconds
+       self.delay      = 15	# seconds
 
 
-   def getMapping(username=None):
+   def getMapping(self, username=None):
+       print 'jobqueue.getMapping(%s) called' % (username,)
+       self.refresh()
        if username is None:
-          if self.unclaimedFrame is None or 
-             self.unclaimedFrame.isDirty():
-               self.refresh()
-               self.unclaimedMapFrame = JobMapping(self.unclaimed)
+          if self.unclaimedMapFrame is None or \
+             self.unclaimedMapFrame.isDirty():
+               self.unclaimedMapFrame = JobMapping(self.unclaimed, None)
           return self.unclaimedMapFrame
        else:
-          if self.claimedFrame is None or 
-             self.claimedFrame.isDirty() or
-             self.claimedFrame.username != username:
-               self.refresh()
-               self.claimedMapFrame = JobMapping(self.claimed[username])
+          if self.claimedMapFrame is None or   \
+             self.claimedMapFrame.isDirty() or \
+             self.claimedMapFrame.username != username:
+               if self.claimed.has_key(username):
+                  self.claimedMapFrame = JobMapping(self.claimed[username], username)
+               else:
+                  self.claimedMapFrame = JobMapping([], username)
           return self.claimedMapFrame
             
 
    def refresh(self, event=None):
        now = time.time()
        self.refreshReq.append(now)
+       print self.refreshReq
        for req in self.refreshReq:
           if (req + self.delay) < now:
              break
@@ -146,7 +154,7 @@ class JobQueue(object):
           except cups.IPPError as e:
              print("caught an IPPError",e)
              continue
-
+       self.refreshReq.clear()
 
    def add(self, job):
        self.jobs[job.jobId] = job
@@ -154,31 +162,32 @@ class JobQueue(object):
           if job.username not in self.claimed:
              self.claimed[job.username] = deque()
           self.claimed[job.username].appendleft(job)
-          if self.claimedFrame is not None and
-             self.claimedFrame.username == job.username:
-                self.claimedFrame.setDirty()
+          if self.claimedMapFrame is not None and \
+             self.claimedMapFrame.username == job.username:
+                self.claimedMapFrame.setDirty()
           if self.mcast is not None:
              self.mcast.advertise(job)
        else:
           self.unclaimed.appendleft(job)
-          if self.unclaimedFrame is not None:
-             self.unclaimedFrame.setDirty()
+          if self.unclaimedMapFrame is not None:
+             self.unclaimedMapFrame.setDirty()
 
 
    def remove(self, removedJobs):
-       for n in filter( lambda x: x in self.jobs, removedJobs):
-           if n in self.unclaimed:
-              self.unclaimed.remove(n)
-              if self.unclaimedFrame is not None:
-                 self.unclaimedFrame.setDirty()
+       for n in filter( lambda x: self.jobs.has_key(x), removedJobs):
+           j = self.jobs[n]
+           if j in self.unclaimed:
+              self.unclaimed.remove(j)
+              if self.unclaimedMapFrame is not None:
+                 self.unclaimedMapFrame.setDirty()
            else:
-              username=self.jobs[n].username
-              self.claimed[username].remove(n)
+              username=j.username
+              self.claimed[username].remove(k)
               if ( len(self.claimed[username]) == 0 ):
                  del self.claimed[username]
-              if self.claimedFrame is not None and
-                 self.claimedFrame.username == username:
-                    self.claimedFrame.setDirty()
+              if self.claimedMapFrame is not None and \
+                 self.claimedMapFrame.username == username:
+                    self.claimedMapFrame.setDirty()
            del self.jobs[n]
 
 

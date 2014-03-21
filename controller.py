@@ -32,16 +32,13 @@ class Controller(object):
       self.login = None
       self.mainscreen = None
       self.conn = cups.Connection() 
-      self.selected = list()
       self.messageDisplay = MessageDisplay()
       
       self.authorize = PageServerAuth(private, authname, lambda: random.uniform(16, 4294967295), 
                                       self.messageDisplay, self.conn)
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
       self.mcast = MulticastMember('233.0.14.56', 34426, 17, unipattern)
-      self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn,
-                                           multicastHandler=self.mcast)
-      self.nextQueueRefresh = self.tk.after_idle(self.updateQueue)
+      self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn, multicastHandler=self.mcast)
 
       
       for attempts in range(3):
@@ -55,55 +52,31 @@ class Controller(object):
 
 
    def authCallback(self, username, result):
-      self.lockQueue()
       self.login = None
       if result == True:
          self.loggedInUsername = username
          self.tk.wm_deiconify()
-         self.mainscreen = MainScreen(selectedList=self.selected,
-                                      username=self.loggedInUsername,
+         self.mainscreen = MainScreen( username=self.loggedInUsername,
                                       jobqueue=self.jobqueue,
                                       cloudAdapter=self.cloudAdapter,
                                       conn=self.conn,
                                       authHandler=self.authorize.authorizeJobs,
                                       messageDisplay=self.messageDisplay,
                                       logoutCb=self.logoutCallback,
-                                      lockQueue=self.lockQueue,
-                                      unlockQueue=self.unlockQueue,
-                                      updateQueue=self.updateQueue,
                                       master=self.tk)
          self.mainscreen.takefocus()
       else:
-         self.unlockQueue()
          self.loggedInUsername = None
          self.login = AuthDialog(self.authCallback, master=self.tk)
+
 
    def logoutCallback(self):
        self.mainscreen.destroy()
        self.mainscreen = None
-       self.unlockQueue()
        self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
        self.login = AuthDialog(self.authCallback, master=self.tk)
        self.login.takefocus()
        self.tk.wm_withdraw()
-
-
-   def lockQueue(self):
-      if self.nextQueueRefresh is not None:
-         self.tk.after_cancel(self.nextQueueRefresh)
-      self.nextQueueRefresh = None
-         
-
-   def unlockQueue(self):
-      if self.nextQueueRefresh is not None:
-         self.tk.after_cancel(self.nextQueueRefresh)
-      self.nextQueueRefresh = self.tk.after_idle(self.updateQueue)
-
-   def updateQueue(self):
-      if self.nextQueueRefresh is not None:
-         self.tk.after_cancel(self.nextQueueRefresh)
-      self.jobqueue.refresh()
-      self.nextQueueRefresh = self.tk.after(4000, self.updateQueue)
 
 
    def downloadBulletins(self, url):
@@ -119,6 +92,7 @@ class Controller(object):
          self.messageDisplay.bulletin(root, 'bulletinBoard')
          self.messageDisplay.update()
 
+
    def start(self):
          self.conn.enablePrinter(self.privateName)
          self.conn.acceptJobs(self.privateName)
@@ -129,6 +103,7 @@ class Controller(object):
          self.login.takefocus()
          self.tk.wm_withdraw()
          self.tk.mainloop()
+
 
    def stop(self):
          print 'Stopping Controller and rejecting incoming jobs'

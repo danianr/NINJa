@@ -8,9 +8,8 @@ import cups
 
 
 class MainScreen(Frame):
-   def __init__(self, selectedList, username, jobqueue, cloudAdapter, conn,
-                  authHandler,  messageDisplay, logoutCb, lockQueue, unlockQueue, updateQueue,
-                  master=None, **cnf):
+   def __init__(self, username, jobqueue, cloudAdapter, conn,
+                  authHandler,  messageDisplay, logoutCb, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.pack(expand=YES, fill=BOTH)
        self.tk  = master
@@ -25,23 +24,16 @@ class MainScreen(Frame):
        self.mdisplay = Frame()
        self.messageDisplay.registerMessageFrame(self.mdisplay)
        self.messageDisplay.registerErrorCallback(self.errorCallback)
-       for tag in self.notebook.bindtags():
-          print '=======[ %s ]=======' % (tag,)
-          print self.notebook.bind_class(tag)
-          for k in self.notebook.bind_class(tag):
-             print '----> Binding: %s' % (k,)
-             print self.notebook.bind_class(tag, k )
 
-
-       self.local = LocalFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorCallback)
-       self.remote = RemoteFrame(selectedList, username, jobqueue, cloudAdapter, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorCallback)
+       self.local = LocalFrame(username, jobqueue, conn, authHandler, self.errorCallback)
+       self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler, self.errorCallback)
        self.hpane.add(self.local)
        self.vpane.add(self.remote)
        self.vpane.add(self.mdisplay)
        self.hpane.add(self.vpane)
        self.notebook.add(self.hpane)
        self.notebook.tab(0, text=username)
-       self.unclaimed = UnclaimedFrame(selectedList, username, jobqueue, conn, authHandler, lockQueue, unlockQueue, updateQueue, self.errorCallback)
+       self.unclaimed = UnclaimedFrame(username, jobqueue, conn, authHandler, self.errorCallback)
        self.notebook.add(self.unclaimed)
        self.notebook.tab(1, text="Unclaimed jobs")
        self.notebook.pack(side=TOP, fill=BOTH, expand=Y)
@@ -107,97 +99,84 @@ class MainScreen(Frame):
 
 
 class LocalFrame(Frame):
-   def __init__(self, selectedList, username, jobqueue,
-                 conn, authHandler, lockQueue, unlockQueue, updateQueue, errorcb, master=None, **cnf):
+   def __init__(self, username, jobqueue, conn, authHandler, errorcb, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
-       self.jq = jobqueue
+       self.loggedInUsername = username
+       self.jq      = jobqueue
+       self.conn    = conn
+       self.auth    = authHandler
+       self.errorcb = errorcb
+
        self.pack(expand=YES, fill=BOTH)
-       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
+       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
+                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
        self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont')
        self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
-       self.selectedList = selectedList
-       self.auth=authHandler
-       if conn is None:
-          self.conn = cups.Connection()
-       else:
-          self.conn = conn
-       self.jobs = dict()
-       self.currentDisplay = []
-       self.errorcb = errorcb
-       self.loggedInUsername=username
-       self.lockQueue = lockQueue
-       self.unlockQueue = unlockQueue
-       self.updateQueue = updateQueue
-       self.updateQueue()
-       self.nextRefresh = self.after_idle(self.refresh)
+
+       # Key Bindings
        self.joblist.bind('<Return>', self.handleAuth, add=True)
        switchToLocal = 'tk::TabToWindow [tk_focusNext %s]' % (self._w,)
        self.unbind_all('<Key-Tab>')
        self.unbind_all('<Shift-Key-Tab>')
        self.bind_all('<Key-Left>', switchToLocal, add=False)
+
+       self.jobMapping = None
+       self.nextRefresh = self.after_idle(self.refresh)
        self.update_idletasks()
 
 
    def handleAuth(self, event=None):
        self.after_cancel(self.nextRefresh)
-       self.lockQueue()
-       del self.selectedList[:]
-       positionMapping=[]
-       filter(lambda (i, j): positionMapping.append(j), self.currentDisplay)
-       for j in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
-           print 'Adding jobId:%d to selectedList' % (j.jobId,)
-           self.selectedList.append(j)
-       self.auth(self.selectedList, self.errorcb)
-       self.unlockQueue()
+       selectedList = self.jobMapping.map(self.joblist.curselection())
+       self.auth(selectedList, self.errorcb)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
    def refresh(self, event=None):
        self.after_cancel(self.nextRefresh)
-       self.updateQueue()
-       self.lockQueue()
-       displayJobs = self.jq.getClaimedJobs(self.loggedInUsername)
-       if displayJobs != self.currentDisplay:
-          self.joblist.delete(0,len(self.currentDisplay) )
-          if displayJobs is not None:
-             for (jobId, job) in displayJobs:
-                 self.joblist.insert(self.joblist.size(), job)
+       mapping = self.jq.getMapping(self.loggedInUsername)
+       if self.jobMapping != mapping:
+          if self.jobMapping is not None:
+             self.joblist.delete(0, len(self.jobMapping) )
+          if mapping is not None:
+             for text in mapping:
+                self.joblist.insert(self.joblist.size(), text)
+          self.jobMapping = mapping
           self.joblist.update_idletasks()
-          self.currentDisplay = displayJobs
-       self.unlockQueue()
        self.nextRefresh = self.after(850, self.refresh)
+
 
 
 class RemoteFrame(Frame):
 
-   def __init__(self, selectedList, username, jobqueue, cloudAdapter,
-                 conn, authHandler, lockQueue, unlockQueue, updateQueue, errorcb, master=None, **cnf):
+   def __init__(self, username, jobqueue, cloudAdapter, conn, authHandler, errorcb, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
-       self.cloudAdapter = cloudAdapter
+       self.selectedList     = []
+       self.loggedInUsername = username
+       self.jq               = jobqueue
+       self.cloudAdapter     = cloudAdapter
+       self.auth    = authHandler
+       self.errorcb = errorcb
+       self.conn    = conn
+
        self.pack(expand=YES, fill=BOTH)
-       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
+       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
+                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
+
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
        self.joblist = Listbox(master=self, font='TkFixedFont', height=40, width=60)
        self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
-       self.selectedList = selectedList
-       self.jq = jobqueue
-       self.updateQueue = updateQueue
-       self.auth=authHandler
-       if conn is None:
-          self.conn = cups.Connection()
-       else:
-          self.conn = conn
        self.jobs = dict()
        self.currentDisplay = []
-       self.errorcb = errorcb
-       self.loggedInUsername=username
-       self.nextRefresh = self.after_idle(self.refresh)
+
        self.joblist.bind('<Return>', self.handleAuth, add=True)
        self.unbind_all('<Key-Tab>')
        self.unbind_all('<Shift-Key-Tab>')
        switchToRemote = 'tk::TabToWindow [tk_focusNext %s]' % (self._w,)
        self.bind_all('<Key-Right>', switchToRemote, add=False)
+       self.nextRefresh = self.after_idle(self.refresh)
+
 
    def handleAuth(self, event=None):
 
@@ -216,7 +195,6 @@ class RemoteFrame(Frame):
               jobId = self.conn.printFile('remote', localfilename, title, opts)
               os.unlink(localfilename)
               remoteJobIds.add(jobId)
-       self.updateQueue()
        self.selectedList = map(lambda i: self.jq[i], remoteJobIds)
 
        self.auth(self.selectedList, self.errorcb)
@@ -244,59 +222,44 @@ class RemoteFrame(Frame):
        self.nextRefresh = self.after(1750, self.refresh)
 
 
+
 class UnclaimedFrame(Frame):
-   def __init__(self, selectedList, username, jobqueue,
-                 conn, authHandler, lockQueue, unlockQueue, updateQueue, errorcb, master=None, **cnf):
+   def __init__(self, username, jobqueue, conn, authHandler, errorcb, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
-       self.jq = jobqueue
+       self.loggedInUsername = username
+       self.jq               = jobqueue
+       self.conn             = conn
+       self.auth             = authHandler
+       self.errorcb          = errorcb
+
        self.pack(expand=YES, fill=BOTH)
-       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
+       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
+                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
        self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont')
        self.joblist.pack(expand=YES, fill=X, anchor=N)
-       self.selectedList = selectedList
-       self.auth=authHandler
-       if conn is None:
-          self.conn = cups.Connection()
-       else:
-          self.conn = conn
-       self.jobs = dict()
-       self.currentDisplay = []
-       self.errorcb = errorcb
-       self.loggedInUsername=username
-       self.lockQueue = lockQueue
-       self.unlockQueue = unlockQueue
-       self.updateQueue = updateQueue
-       self.updateQueue()
-       self.nextRefresh = self.after_idle(self.refresh)
        self.joblist.bind('<Return>', self.handleAuth, add=True)
+
+       self.jobMapping  = None
+       self.nextRefresh = self.after_idle(self.refresh)
+
 
    def handleAuth(self, event=None):
        self.after_cancel(self.nextRefresh)
-       self.lockQueue()
-       del self.selectedList[:]
-       positionMapping=[]
-       filter(lambda (i, j): positionMapping.append(j), self.currentDisplay)
-       for j in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
-           print 'Adding jobId:%d to selectedList' % (j.jobId,)
-           self.selectedList.append(j)
-       self.auth(self.selectedList, self.errorcb)
-       self.unlockQueue()
+       selectedList = self.jobMapping.map(self.joblist.curselection())
+       self.auth(selectedList, self.errorcb, username=self.loggedInUsername)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
    def refresh(self, event=None):
        self.after_cancel(self.nextRefresh)
-       self.updateQueue()
-       self.lockQueue()
-       displayJobs = self.jq.getUnclaimedJobs()
-       if displayJobs != self.currentDisplay:
-          self.joblist.delete(0,len(self.jobs) )
-          if displayJobs is not None:
-             for (jobId, job) in displayJobs:
-                 self.joblist.insert(self.joblist.size(), job)
+       mapping = self.jq.getMapping()
+       if self.jobMapping != mapping:
+          if self.jobMapping is not None:
+             self.joblist.delete(0, len(self.jobMapping) )
+          if mapping is not None:
+             for text in mapping:
+                self.joblist.insert(self.joblist.size(), text)
+          self.jobMapping = mapping
           self.joblist.update_idletasks()
-          self.currentDisplay = displayJobs
-       self.unlockQueue()
-       self.nextRefresh = self.after(1100, self.refresh)
-
+       self.nextRefresh = self.after(1150, self.refresh)

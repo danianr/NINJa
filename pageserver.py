@@ -12,26 +12,27 @@ uuidKey  = 'job-uuid'
 supportedUriKey = 'printer-uri-supported'
 
 class PageServerAuth(object):
-   def __init__(self, private, hostname, idGenerator, display, conn=None):
+   def __init__(self, private, hostname, idGenerator, display, conn):
        self.hostname   = hostname
        self.servername = 'wwwapp.cc.columbia.edu'
        self.idGenerator = idGenerator
        self.messageDisplay = display
-       if conn is None:
-          self.conn = cups.Connection()
-       else:
-          self.conn = conn
+       self.conn = conn
        printers = self.conn.getPrinters()
        self.privateUri = printers[private][supportedUriKey]
 
 
-   def authorizeJobs(self, selectedJobs, errorcb):
+   def authorizeJobs(self, selectedJobs, errorcb, authname=None):
        print 'Entering authorizeJobs'
        print repr(selectedJobs)
        requestId=self.idGenerator()
 
        for j in selectedJobs:
-          url = '/atg/PageServer/query/%s/%s/%.5x/%d' % (self.hostname, j.username, requestId, j.pages)
+          if authname is None:
+             username = j.username
+          else:
+             username = authname
+          url = '/atg/PageServer/query/%s/%s/%.5x/%d' % (self.hostname, username, requestId, j.pages)
           http = httplib.HTTPSConnection(self.servername)
           http.request("GET", url)
           resp = http.getresponse()
@@ -40,6 +41,9 @@ class PageServerAuth(object):
           root = ET.fromstring(xml)
           queryResponse = root.find('queryResponse').attrib
           if queryResponse['Authorized'] == 'True':
+               # reset the username on any authorized unclaimed job
+               if j.username != authname:
+                  j.username = authname
                self.releaseJob(j, queryResponse['reqId'], errorcb)
           else:
                errorcb('Insufficient Quota')
