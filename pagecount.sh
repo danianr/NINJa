@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 GHOSTSCRIPT=/usr/bin/gs
 CUT=/usr/bin/cut
