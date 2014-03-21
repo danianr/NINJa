@@ -39,6 +39,7 @@ class Controller(object):
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
       self.mcast = MulticastMember('233.0.14.56', 34426, 17, unipattern)
       self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn, multicastHandler=self.mcast)
+      self.nextRefresh = self.tk.after_idle(self.refreshQueue)
 
       
       for attempts in range(3):
@@ -77,6 +78,11 @@ class Controller(object):
        self.login = AuthDialog(self.authCallback, master=self.tk)
        self.login.takefocus()
        self.tk.wm_withdraw()
+
+   def refreshQueue(self):
+       self.tk.after_cancel(self.nextRefresh)
+       self.jobqueue.refresh()
+       self.nextRefresh = self.tk.after(6000, self.refreshQueue)
 
 
    def downloadBulletins(self, url):
