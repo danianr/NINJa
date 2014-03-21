@@ -22,17 +22,13 @@ class PageServerAuth(object):
        self.privateUri = printers[private][supportedUriKey]
 
 
-   def authorizeJobs(self, selectedJobs, errorcb, authname=None):
+   def authorizeJobs(self, selectedJobs, errorcb, authname):
        print 'Entering authorizeJobs'
        print repr(selectedJobs)
        requestId=self.idGenerator()
 
        for j in selectedJobs:
-          if authname is None:
-             username = j.username
-          else:
-             username = authname
-          url = '/atg/PageServer/query/%s/%s/%.5x/%d' % (self.hostname, username, requestId, j.pages)
+          url = '/atg/PageServer/query/%s/%s/%.5x/%d' % (self.hostname, authname, requestId, j.pages)
           http = httplib.HTTPSConnection(self.servername)
           http.request("GET", url)
           resp = http.getresponse()
@@ -44,13 +40,13 @@ class PageServerAuth(object):
                # reset the username on any authorized unclaimed job
                if j.username != authname:
                   j.username = authname
-               self.releaseJob(j, queryResponse['reqId'], errorcb)
+               self.releaseJob(j, queryResponse['reqId'], errorcb, authname)
           else:
                errorcb('Insufficient Quota')
                self.messageDisplay.quota(root, 'queryResponse', True)
 
 
-   def releaseJob(self, job, requestId, errorcb):
+   def releaseJob(self, job, requestId, errorcb, authname):
        try:
           self.conn.moveJob(job_id=job.jobId, job_printer_uri=self.privateUri)
           # dear god no, not a busy while loop.  there has to be a subscription / event
