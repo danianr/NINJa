@@ -118,7 +118,6 @@ class JobQueue(object):
 
 
    def getMapping(self, username=None):
-       print 'jobqueue.getMapping(%s) called' % (username,)
        self.refresh()
        if username is None:
           if self.unclaimedMapFrame is None or \
@@ -139,7 +138,6 @@ class JobQueue(object):
    def refresh(self, event=None):
        now = time.time()
        self.refreshReq.append(now)
-       print self.refreshReq
        for req in self.refreshReq:
           if (req + self.delay) < now:
              break
@@ -174,21 +172,22 @@ class JobQueue(object):
 
 
    def remove(self, removedJobs):
-       for n in filter( lambda x: self.jobs.has_key(x), removedJobs):
-           j = self.jobs[n]
+       for id in filter( lambda x: self.jobs.has_key(x), removedJobs):
+           j = self.jobs[id]
            if j in self.unclaimed:
               self.unclaimed.remove(j)
               if self.unclaimedMapFrame is not None:
                  self.unclaimedMapFrame.setDirty()
            else:
               username=j.username
-              self.claimed[username].remove(k)
-              if ( len(self.claimed[username]) == 0 ):
-                 del self.claimed[username]
+              if self.claimed.has_key(username):
+                 self.claimed[username].remove(j)
+                 if ( len(self.claimed[username]) == 0 ):
+                    del self.claimed[username]
               if self.claimedMapFrame is not None and \
                  self.claimedMapFrame.username == username:
                     self.claimedMapFrame.setDirty()
-           del self.jobs[n]
+           del self.jobs[id]
 
 
    def getClaimedUuids(self,username):
