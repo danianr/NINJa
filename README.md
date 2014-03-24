@@ -35,4 +35,4 @@ Jake, Columbia's original print-release platform.
    the shared database necessitated splitting out the print accounting
    tables, account information was provided via LDAP.  Additional information
    can be found on this generation of Columbia's print release system from
-   this 2004 EDUCause presentation: [ninja_educause](docs/ninja_educause2005.pdf)
+   this 2004 EDUCause presentation: [ninja_educause](docs/ninja_educause2004.pdf)
