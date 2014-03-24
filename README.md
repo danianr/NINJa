@@ -13,7 +13,10 @@ python ninja.py
 
 Additional Information
 ----------------------
-=>[Project Map](docs/map.md)
-=>[Linux configuration](docs/linux_config.md)
-=>[cupsd configuration](docs/cupsd_config.md)
-=>[History](docs/history.md)
+[Project Map](docs/map.md)
+
+[Linux configuration](docs/linux_config.md)
+
+[cupsd configuration](docs/cupsd_config.md)
+
+[History](docs/history.md)
