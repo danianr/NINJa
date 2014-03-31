@@ -24,7 +24,10 @@ class Job(object):
        pagecount_cmd = './pagecount.sh %s %s' % ( doc['document-format'], doc['file'] )
        sha512 = popen(digest_cmd).read()
        pagecount = popen(pagecount_cmd).read()
-       self.pages = int(pagecount)
+       try:
+           self.pages = int(pagecount)
+       except ValueError:
+           self.pages = 1
        self.sha512 = sha512[-129:-1]
        self.docFormat = doc['document-format']
        attr = conn.getJobAttributes(jobId)

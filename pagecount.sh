@@ -4,6 +4,9 @@ GHOSTSCRIPT=/usr/bin/gs
 CUT=/usr/bin/cut
 GREP=/bin/grep
 SED=/bin/sed
+FILE=/usr/bin/file
+GUNZIP=/bin/gunzip
+MOVE=/bin/mv
 REMOVE=/bin/rm
 
 FILETYPE="$1"
@@ -23,6 +26,13 @@ if   [ "$1" = "application/postscript" ]; then
    exit_status=$?
 
 elif [ "$1" = "application/pdf" ]; then
+
+   # Newer CUPS implemenations on MacOS send the PDF gziped
+   if $FILE -i "$TMPFILE" | $GREP application/x-gzip > /dev/null 2>&1; then
+      $MOVE ${TMPFILE} ${TMPFILE}.gz
+      $GUNZIP ${TMPFILE}.gz
+   fi
+
    $GHOSTSCRIPT -q -dNODISPLAY -c "(${TMPFILE}) (r) file runpdfbegin pdfpagecount = quit"
    exit_status=$?
 
