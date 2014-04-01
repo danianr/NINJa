@@ -38,6 +38,7 @@ class Job(object):
        self.title = attr['job-name'].encode('ascii','replace')
        self.displayTitle = self.title[:47]
        self.jobState = attr['job-state']
+       self.remote   = printerUri.endswith('/remote')
 
        if ( attr.has_key('Duplex')  and attr['Duplex'] == u'DuplexNoTumble' ):
            self.duplex = True
@@ -151,13 +152,15 @@ class JobQueue(object):
        for jobId in filter( lambda x: not self.jobs.has_key(x), incompleteJobs.keys()):
           try:
              j = Job(self.conn, jobId )
-             self.add(j)
+             if not j.remote:
+                self.add(j)
           except cups.IPPError as e:
              print("caught an IPPError",e)
              continue
        self.refreshReq.clear()
 
    def add(self, job):
+       # updates the main index
        self.jobs[job.jobId] = job
        if self.unipattern.match(job.username):
           if job.username not in self.claimed:
@@ -200,3 +203,13 @@ class JobQueue(object):
              urnuuid = j.uuid
              uuids.append(urnuuid[9:])
        return uuids
+
+   def __getitem__(self,x):
+       if x in self.jobs:
+          return self.jobs[x]
+
+       jobId = filter(lambda j: (j == x), self.conn.getJobs(which_jobs='not-completed'))
+       if jobId == x:
+          return Job(self.conn, jobId)
+       else:
+          return None

@@ -1,7 +1,61 @@
 from socket import *
 from datetime import *
 from subprocess import *
+from collections import deque
 import os
+import time
+
+
+class IndexView(object):
+
+   def __init__(self, username, indexFunc, displayFunc):
+       self.username = username
+       self.timestamp = time.time()
+       self.indexFunc = indexFunc
+       self.displayFunc = displayFunc
+       self.internal  = self.indexFunc(username)
+       self.refreshReq = deque()
+       self.dirty = False
+       self.delay = 120
+
+   def refresh(self, event=None):
+       now = time.time()
+       self.refreshReq.append(now)
+       for req in self.refreshReq:
+          if (req + self.delay) < now or self.dirty:
+             break
+       else:
+          return
+
+       self.internal = self.indexFunc(username)
+       self.timestamp = now
+       self.refreshReq.clear()
+
+   def isDirty(self):
+       return self.dirty
+
+   def setDirty(self):
+       self.dirty = True
+
+   def map(self, iterable):
+       return map(lambda i: self.internal[int(i)], iterable)
+
+
+   # Only define getter accessors since this is technically
+   # a read-only snapshot
+   def __getitem__(self, x):
+       return self.internal[x]
+
+   def __getslice__(self, x, y):
+       return self.internal[x:y]
+
+   def __len__(self):
+       return len(self.internal)
+
+   def __iter__(self):
+       return iter(map(self.displayFunc,  self.internal))
+
+
 
 class CloudAdapter(object):
 
@@ -76,23 +130,32 @@ class CloudAdapter(object):
            else:
               duplex = True
               sheets = (pageinfo + 1 ) >> 2
-           if printer is not None:
+           if printer is not None and printer != '0.0.0.0':
               try:
+                  print 'attempting for printer gethostbyaddr(%s)' % (printer,)
                   (printer, aliases, ip_list) = gethostbyaddr(printer)
               except:
                   printer = 'UNKNOWN'
            else:
               printer = 'UNKNOWN'
 
-           if ipaddr is not None:
+           if ipaddr is not None and ipaddr != '0.0.0.0':
               try:
+                  print 'attempting for client gethostbyaddr(%s)' % (ipaddr,)
                   (client, aliases, ip_list)  = gethostbyaddr(ipaddr)
               except:
                   client = 'unknown'
            else:
+              print 'using localhost for client'
               client = 'localhost'
            index.append((uuid, sha512, created, sheets, duplex, client, printer, username, title))
        return index 
+
+
+   def indexStr(self, tuple):
+        (uuid, sha512, created, sheets, duplex, client, printer, username, title) = tuple
+        return '%s  %s  %d   %s' % ( client, created.strftime('%a %I:%M:%S %p'), sheets, title[:32])
+
 
    def retrieveJob(self, username, sha512, gridlist=None):
         userrand = random.Random(username)

@@ -2,6 +2,7 @@ from Tkinter import *
 from ttk import *
 from os import popen
 from jobqueue import *
+from cloudadapter import IndexView
 import time
 import cups
 
@@ -17,6 +18,8 @@ class RemoteFrame(Frame):
        self.auth    = authHandler
        self.errorcb = errorcb
        self.conn    = conn
+       self.remoteIndex = IndexView(username, cloudAdapter.getIndex, cloudAdapter.indexStr)
+       self.viewTimestamp = 1
 
        self.pack(expand=YES, fill=BOTH)
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
@@ -40,11 +43,9 @@ class RemoteFrame(Frame):
 
        self.after_cancel(self.nextRefresh)
        del self.selectedList[:]
-       positionMapping=[]
-       remoteJobIds = []
-       filter(lambda (u, s, p, l): positionMapping.append(l), self.currentDisplay)
-       for l in map(lambda x: positionMapping[int(x)], self.joblist.curselection() ):
-           (uuid, printer, sha512, client, duplex, title) = self.jobs[l]
+       remoteJobIds = set()
+       for i in self.joblist.curselection():
+           (uuid, printer, sha512, client, duplex, title) = self.currentDisplay[i]
            print 'Adding remoteJob:(%s, %s, %s)  to selectedList' % (uuid, printer, sha512)
            if self.cloudAdapter.retrieveJob(self.loggedInUsername, sha512, gridlist):
               opts = dict()
@@ -61,20 +62,18 @@ class RemoteFrame(Frame):
 
    def refresh(self, event=None):
        self.after_cancel(self.nextRefresh)
-       remoteIndex = self.cloudAdapter.getIndex(self.loggedInUsername)
-       if remoteIndex != self.currentDisplay:
-          self.joblist.delete(0,len(self.jobs) )
-          self.jobs.clear()
-          if remoteIndex is not None:
-             localjobs = set()
-             localjobs.update(self.jq.getClaimedUuids(self.loggedInUsername))
+       if self.remoteIndex.timestamp != self.viewTimestamp:
+          self.remoteIndex.refresh()
+          self.viewTimestamp = self.remoteIndex.timestamp
+          self.joblist.delete(0,self.joblist.size())
+          if self.remoteIndex is not None:
+             #localjobs = set()
+             #localjobs.update(self.jq.getClaimedUuids(self.loggedInUsername))
 
-             for (uuid, sha512, created, sheets, duplex, client, printer, username, title) in remoteIndex:
-                 if uuid not in localjobs:
-                    line = '%s  %s  %d   %s' % ( client, created.strftime('%a %I:%M:%S %p'), sheets, title[:32])
-                    self.jobs[line] = (uuid, sha512, client, duplex, title)
-                    self.joblist.insert(self.joblist.size(), line)
+             for line in self.remoteIndex:
+                 self.joblist.insert(self.joblist.size(), line)
           self.joblist.update_idletasks()
-          self.currentDisplay = remoteIndex
+
+       # Update the message display pane 
        self.event_generate('<<Bulletin>>')
        self.nextRefresh = self.after(1750, self.refresh)
