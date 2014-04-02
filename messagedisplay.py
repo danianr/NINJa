@@ -55,10 +55,11 @@ class MessageDisplay(object):
 
    def registerMessageFrame(self, messageFrame):
        self.messageFrame = messageFrame
-       self.messageFrame.bind_all('<<Bulletin>>', self.update)
-       self.displayLabel = Tkinter.Label(textvar=self.message, master=messageFrame)
-       self.displayLabel.pack()
-       self.messageFrame.pack()
+       if self.messageFrame is not None:
+           self.messageFrame.bind_all('<<Bulletin>>', self.update)
+           self.displayLabel = Tkinter.Label(textvar=self.message, master=messageFrame)
+           self.displayLabel.pack()
+           self.messageFrame.pack()
 
    def registerErrorCallback(self, errorcb):
        self.errorcb = errorcb
@@ -134,4 +135,9 @@ class MessageDisplay(object):
        self.bulletins['quota'] = Bulletin('quota', ts + qs + ds, 1, int(time.time()) + 300, 1)
        if insufficientQuota and self.errorcb is not None:
           self.errorcb('Insufficent Quota')
-          
+
+
+   def clearQuota(self, event=None):
+       if self.bulletins.has_key('quota'):
+           del self.bulletins['quota']
+       self.update()
