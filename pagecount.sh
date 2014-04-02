@@ -51,5 +51,5 @@ else
    echo 1
 fi
 
-$REMOVE ${TMPFILE} > /dev/null 2>&1
+#$REMOVE ${TMPFILE} > /dev/null 2>&1
 exit $exit_status

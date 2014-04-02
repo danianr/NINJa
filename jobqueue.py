@@ -39,6 +39,7 @@ class Job(object):
        self.displayTitle = self.title[:47]
        self.jobState = attr['job-state']
        self.remote   = printerUri.endswith('/remote')
+       self.tmpfile  = doc['file']
 
        if ( attr.has_key('Duplex')  and attr['Duplex'] == u'DuplexNoTumble' ):
            self.duplex = True
@@ -66,6 +67,9 @@ class Job(object):
    def __str__(self):
        return '%4d  %-12s %-18s %-48s  %6s' % ( self.jobId,  self.username, self.hostname, self.displayTitle, self.pages )
 
+   def removeTmpFile(self):
+       if self.tmpfile is not None and self.tmpfile != "":
+          os.remove(self.tmpfile)
 
 
 class JobMapping(object):
@@ -108,10 +112,11 @@ class JobMapping(object):
 
 
 class JobQueue(object):
-   def __init__(self, unipattern, conn, multicastHandler=None):
+   def __init__(self, unipattern, conn, multicastHandler=None, cloudAdapter=None):
        self.unipattern = unipattern
        self.conn       = conn
        self.mcast      = multicastHandler
+       self.cloud      = cloudAdapter
        self.jobs       = dict()
        self.claimed    = dict()
        self.unclaimed  = deque()
@@ -171,6 +176,8 @@ class JobQueue(object):
                 self.claimedMapFrame.setDirty()
           if self.mcast is not None:
              self.mcast.advertise(job)
+          if self.cloud is not None:
+             self.cloud.storeJob(job)
        else:
           self.unclaimed.appendleft(job)
           if self.unclaimedMapFrame is not None:

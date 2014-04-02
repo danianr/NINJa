@@ -1,9 +1,10 @@
 from socket import *
 from datetime import *
-from subprocess import *
+from subprocess import Popen, PIPE
 from collections import deque
 import os
 import time
+import random
 
 
 class IndexView(object):
@@ -81,20 +82,25 @@ class CloudAdapter(object):
 
    def _retrieve(self, node, username, sha512):
        command_script = 'cd %s/%s\nget %s\nexit\n' % (self.remote_path, username, sha512)
-       return self._sftp_wrapper(self, node, command_script)
+       return self._sftp_wrapper(node, command_script)
 
 
    def _store(self, node, username, sha512, file):
        command_script = 'mkdir %s/%s\ncd %s/%s\nput %s %s\nexit\n' % (self.remote_path,
                                          username, self.remote_path, username, file, sha512)
-       return self._sftp_wrapper(self, node, command_script)
+       return self._sftp_wrapper(node, command_script)
 
 
    def _sftp_wrapper(self, node, command_script):
-       p = Popen( [self.sftp, '-b-', node], shell=False, bufsize=1024, cwd=self.landing)
+       print 'Entrance into sftp_wrapper(%s, %s)' % (node, command_script)
+       p = Popen( [self.sftp, '-b-', node], stdin=PIPE, stdout=1, stderr=2, shell=False, bufsize=1024, cwd=self.landing)
+       print 'after Popen'
        p.communicate(command_script)
-       maxtime = time() + 36
-       while ( time() < maxtime ):
+       print 'after Popen.communicate'
+       maxtime = time.time() + 36
+       print 'maxtime = ', maxtime
+       while ( time.time() < maxtime ):
+          print 'polling subprocess'
           retstatus = p.poll()
           if retstatus == 0:
              return True
@@ -104,7 +110,11 @@ class CloudAdapter(object):
              return False
        p.kill()
        return False
- 
+
+
+   def registerGridList(self, gridlist):
+       print 'registering gridlist:', gridlist
+       self.gridlist = gridlist 
 
    def getHeaders(self, username):
        cmd = 'return %s' % (username,)
@@ -158,14 +168,24 @@ class CloudAdapter(object):
 
 
    def retrieveJob(self, username, sha512, gridlist=None):
-        userrand = random.Random(username)
+        userrand = random.Random()
+        userrand.seed(username)
 
+        # Can't reference a member of an argument as a default value
+        if gridlist is None:
+           gridlist = self.gridlist
+
+        print 'Entrance into retrieveJob(%s, %s, %s)' % (username, sha512, repr(gridlist))
         if gridlist is not None:
-           nodes = userrand(gridlist, 3)
+           try:
+                nodes = userrand.sample(gridlist, 3)
+           except ValueError:
+                nodes = gridlist[0:3]
         else:
            nodes = ('localhost',)
 
         for node in nodes:
+           print 'retreiveJob trying node: ', node
            if self._retrieve(node, username, sha512):
               print 'job %s/%s successfully retrieved from %s\n' % (username, sha512, node)
               return '%s/%s' % (self.landing, sha512)
@@ -175,15 +195,27 @@ class CloudAdapter(object):
    def storeJob(self, job, gridlist=None):
         username = job.username
         sha512   = job.sha512
-        userrand = random.Random(username)
+        tmpfile  = job.tmpfile
+        userrand = random.Random()
+        userrand.seed(username)
 
+        # Can't reference a member of an argument as a default value
+        if gridlist is None:
+           gridlist = self.gridlist
+
+        print 'Entrance into storeJob(%s, %s)' % (repr(job), repr(gridlist))
+
+        
         if gridlist is not None:
-           nodes = userrand(gridlist, 3)
+           try:
+                nodes = userrand.sample(gridlist, 3)
+           except ValueError:
+                nodes = gridlist[0:3]
         else:
            nodes = ('localhost',)
 
         for node in nodes:
-           if self._store(node, username, sha512):
+           if self._store(node, username, sha512, tmpfile):
               print 'job %s/%s successfully stored to %s\n' % (username, sha512, node)
            else:
               print 'problem storing %s/%s to %s\n' % (username, sha512, node)

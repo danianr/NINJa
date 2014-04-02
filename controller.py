@@ -6,6 +6,7 @@ from pageserver import PageServerAuth
 from messagedisplay import MessageDisplay
 from jobqueue import *
 from cloudadapter import *
+from subprocess import Popen
 import cups
 import re
 import random
@@ -18,7 +19,7 @@ import xml.etree.ElementTree as ET
 
 
 class Controller(object):
-   def __init__(self, private, authname, public='public', tk=None):
+   def __init__(self, private, authname, public='public', gridlist=['localhost'], tk=None):
       if tk != None: 
          self.tk = tk
       else:
@@ -28,6 +29,7 @@ class Controller(object):
 
       self.publicName = public
       self.privateName = private
+      self.gridlist = gridlist
       self.loggedInUsername = None
       self.login = None
       self.mainscreen = None
@@ -38,18 +40,24 @@ class Controller(object):
                                       self.messageDisplay, self.conn)
       unipattern = re.compile('(?!.{9})([a-z]{2,7}[0-9]{1,6})')
       self.mcast = MulticastMember('233.0.14.56', 34426, 17, unipattern)
-      self.jobqueue = JobQueue(unipattern=unipattern, conn=self.conn, multicastHandler=self.mcast)
-      self.nextRefresh = self.tk.after_idle(self.refreshQueue)
-
       
       for attempts in range(3):
          try:
             self.cloudAdapter = CloudAdapter('/tmp/keepersock')
+            self.cloudAdapter.registerGridList(self.gridlist)
             break
          except OSError:
             self.daemonlog = file('multicast.log', mode='a', buffering=0)
-            self.daemon = Popen('./multicast', stdin=None, stdout=self.daemonlog, stderr=STDOUT)
+            self.daemon = Popen('./multicast', stdin=None, stdout=self.daemonlog, stderr=self.daemonlog)
             time.sleep(1)
+
+      self.jobqueue = JobQueue(unipattern=unipattern,
+                               conn=self.conn,
+                               multicastHandler=self.mcast,
+                               cloudAdapter=self.cloudAdapter)
+
+      self.nextRefresh = self.tk.after_idle(self.refreshQueue)
+
 
 
    def authCallback(self, username, result):
@@ -72,8 +80,10 @@ class Controller(object):
 
 
    def logoutCallback(self):
+       self.messageDisplay.registerMessageFrame(None)
        self.mainscreen.destroy()
        self.mainscreen = None
+       self.messageDisplay.clearQuota()
        self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
        self.login = AuthDialog(self.authCallback, master=self.tk)
        self.login.takefocus()

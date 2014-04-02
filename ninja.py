@@ -56,6 +56,7 @@ if __name__ == '__main__':
 
        conn.addPrinter(privatename, device='socket://%s' % (printername,) )
 
-   controller = Controller(privatename, ninjaname)
+   devninjas = [ 'watson8-ninja.atg.columbia.edu' ]
+   controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=devninjas)
    controller.downloadBulletins('https://wwwapp.cc.columbia.edu/atg/PageServer/bulletin')
    controller.start()
