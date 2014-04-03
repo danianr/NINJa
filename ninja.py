@@ -31,6 +31,8 @@ if __name__ == '__main__':
    # cloud print jobs
    if ('remote', None) not in cupsDestinations:
       conn.addPrinter('remote')
+   conn.disablePrinter('remote')
+   conn.acceptJobs('remote')
 
    # Determine the name of the associated printer by replacing the "ninja" substring
    # of the current hostname with "printer".  Validate this hostname by performing

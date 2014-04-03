@@ -18,19 +18,22 @@ class IndexView(object):
        self.refreshReq = deque()
        self.dirty = False
        self.delay = 120
+       print 'IndexView(%s) internal = %s timestamp = %f' % (username, repr(self.internal), self.timestamp)
 
    def refresh(self, event=None):
        now = time.time()
        self.refreshReq.append(now)
+       print 'IndexView.refresh called %s' % repr(self.refreshReq)
        for req in self.refreshReq:
           if (req + self.delay) < now or self.dirty:
              break
        else:
           return
 
-       self.internal = self.indexFunc(username)
+       self.internal = self.indexFunc(self.username)
        self.timestamp = now
        self.refreshReq.clear()
+       print '[refresh] IndexView(%s) internal = %s timestamp = %f' % (self.username, repr(self.internal), self.timestamp)
 
    def isDirty(self):
        return self.dirty
@@ -93,10 +96,8 @@ class CloudAdapter(object):
 
    def _sftp_wrapper(self, node, command_script):
        print 'Entrance into sftp_wrapper(%s, %s)' % (node, command_script)
-       p = Popen( [self.sftp, '-b-', node], stdin=PIPE, stdout=1, stderr=2, shell=False, bufsize=1024, cwd=self.landing)
-       print 'after Popen'
+       p = Popen( [self.sftp, node], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=False, bufsize=1024, cwd=self.landing)
        p.communicate(command_script)
-       print 'after Popen.communicate'
        maxtime = time.time() + 36
        print 'maxtime = ', maxtime
        while ( time.time() < maxtime ):

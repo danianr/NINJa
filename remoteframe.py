@@ -1,8 +1,8 @@
 from Tkinter import *
 from ttk import *
-from os import popen
 from jobqueue import *
 from cloudadapter import IndexView
+import os
 import time
 import cups
 
@@ -45,16 +45,17 @@ class RemoteFrame(Frame):
        del self.selectedList[:]
        remoteJobIds = set()
        for i in self.joblist.curselection():
-           (uuid, printer, sha512, client, duplex, title) = self.currentDisplay[i]
-           print 'Adding remoteJob:(%s, %s, %s)  to selectedList' % (uuid, printer, sha512)
-           if self.cloudAdapter.retrieveJob(self.loggedInUsername, sha512, gridlist):
+           (uuid, sha512, created, sheets, duplex, client, printer, username, title) = self.remoteIndex[int(i)]
+           if self.cloudAdapter.retrieveJob(self.loggedInUsername, sha512):
               opts = dict()
               opts['job-originating-user-name'] = self.loggedInUsername
               opts['job-originating-host-name'] = client
+              localfilename = '/tmp/' + sha512
               jobId = self.conn.printFile('remote', localfilename, title, opts)
               os.unlink(localfilename)
               remoteJobIds.add(jobId)
-       self.selectedList = map(lambda i: self.jq[i], remoteJobIds)
+              print 'remoteJobIds = ', repr(remoteJobIds)
+       self.selectedList = map(lambda j: self.jq[j], remoteJobIds)
 
        self.auth(self.selectedList, self.errorcb, self.loggedInUsername)
        self.nextRefresh = self.after_idle(self.refresh)
@@ -62,8 +63,9 @@ class RemoteFrame(Frame):
 
    def refresh(self, event=None):
        self.after_cancel(self.nextRefresh)
+       print 'RemoteFrame.refresh called %f != %f' % (self.remoteIndex.timestamp, self.viewTimestamp)
+       self.remoteIndex.refresh()
        if self.remoteIndex.timestamp != self.viewTimestamp:
-          self.remoteIndex.refresh()
           self.viewTimestamp = self.remoteIndex.timestamp
           self.joblist.delete(0,self.joblist.size())
           if self.remoteIndex is not None:

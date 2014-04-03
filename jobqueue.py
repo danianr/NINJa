@@ -212,11 +212,14 @@ class JobQueue(object):
        return uuids
 
    def __getitem__(self,x):
+       print 'get JobQueue item:',repr(x)
+       print 'self.jobs.keys() is', repr(self.jobs.keys())
        if x in self.jobs:
           return self.jobs[x]
 
-       jobId = filter(lambda j: (j == x), self.conn.getJobs(which_jobs='not-completed'))
-       if jobId == x:
-          return Job(self.conn, jobId)
+       incompleteJobs = self.conn.getJobs(which_jobs='not-completed')
+       print 'incompleteJobs = ', repr(incompleteJobs)
+       if incompleteJobs.has_key(x):
+          return Job(self.conn, x)
        else:
           return None
