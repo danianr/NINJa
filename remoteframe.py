@@ -26,14 +26,14 @@ class RemoteFrame(Frame):
                              ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
 
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
-       self.joblist = Listbox(master=self, font='TkFixedFont', height=40, width=60)
+       self.joblist = Listbox(master=self, background='white', font='TkFixedFont', height=40, width=60)
        self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
        self.jobs = dict()
        self.currentDisplay = []
 
        self.joblist.bind('<Return>', self.handleAuth, add=True)
-       self.unbind_all('<Key-Tab>')
-       self.unbind_all('<Shift-Key-Tab>')
+       #self.unbind_all('<Key-Tab>')
+       #self.unbind_all('<Shift-Key-Tab>')
        switchToRemote = 'tk::TabToWindow [tk_focusNext %s]' % (self._w,)
        self.bind_all('<Key-Right>', switchToRemote, add=False)
        self.nextRefresh = self.after_idle(self.refresh)
@@ -54,16 +54,13 @@ class RemoteFrame(Frame):
               jobId = self.conn.printFile('remote', localfilename, title, opts)
               os.unlink(localfilename)
               remoteJobIds.add(jobId)
-              print 'remoteJobIds = ', repr(remoteJobIds)
        self.selectedList = map(lambda j: self.jq[j], remoteJobIds)
-
        self.auth(self.selectedList, self.errorcb, self.loggedInUsername)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
    def refresh(self, event=None):
        self.after_cancel(self.nextRefresh)
-       print 'RemoteFrame.refresh called %f != %f' % (self.remoteIndex.timestamp, self.viewTimestamp)
        self.remoteIndex.refresh()
        if self.remoteIndex.timestamp != self.viewTimestamp:
           self.viewTimestamp = self.remoteIndex.timestamp

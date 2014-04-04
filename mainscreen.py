@@ -55,8 +55,12 @@ class MainScreen(Frame):
 
        self.logoutCb = logoutCb
 
-       self.bind_all('<Key-Tab>', self.switchView )
-       self.bind_all('<Key-Escape>', self.logout )
+       self.unbind_all('<Key-Tab>')
+       self.unbind_all('<Shift-Key-Tab>')
+       self.event_add('<<SwitchView>>', '<Key-Tab>')
+       self.bind_all('<<SwitchView>>', self.switchView )
+       self.event_add('<<Logout>>', '<Key-Escape>')
+       self.bind_all('<<Logout>>', self.logout )
        self.jobWidget =  ( self.local.joblist, self.unclaimed.joblist )
 
    def errorCallback(self, message):
@@ -69,6 +73,7 @@ class MainScreen(Frame):
        err.after(6000, err.destroy)
 
    def switchView(self, e):
+       print 'switchView called / e:', repr(e)
        if isinstance(e.widget, Listbox):
           e.widget.selection_clear(0, 'end')
        current = self.notebook.select()
@@ -88,8 +93,8 @@ class MainScreen(Frame):
        return self.mdisplay
 
    def logout(self, e):
-       self.unbind_all('<Key-Tab>')
-       self.unbind_all('<Key-Escape>')
+       self.unbind_all('<<SwitchView>>')
+       self.unbind_all('<<Logout>>')
        self.unclaimed.destroy()
        self.vpane.destroy()
        self.hpane.destroy()
@@ -111,14 +116,14 @@ class LocalFrame(Frame):
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
                              ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
-       self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont')
+       self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont',background='white')
        self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
 
        # Key Bindings
        self.joblist.bind('<Return>', self.handleAuth, add=True)
        switchToLocal = 'tk::TabToWindow [tk_focusNext %s]' % (self._w,)
-       self.unbind_all('<Key-Tab>')
-       self.unbind_all('<Shift-Key-Tab>')
+       #self.unbind_all('<Key-Tab>')
+       #self.unbind_all('<Shift-Key-Tab>')
        self.bind_all('<Key-Left>', switchToLocal, add=False)
 
        self.jobMapping = None
@@ -160,7 +165,7 @@ class UnclaimedFrame(Frame):
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
                              ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
-       self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont')
+       self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont',background='white')
        self.joblist.pack(expand=YES, fill=X, anchor=N)
        self.joblist.bind('<Return>', self.handleAuth, add=True)
 
@@ -172,6 +177,7 @@ class UnclaimedFrame(Frame):
        self.after_cancel(self.nextRefresh)
        selectedList = self.jobMapping.map(self.joblist.curselection())
        self.auth(selectedList, self.errorcb, self.loggedInUsername)
+       self.event_generate('<<SwitchView>>')
        self.nextRefresh = self.after_idle(self.refresh)
 
 

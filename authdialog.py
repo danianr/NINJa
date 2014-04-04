@@ -27,8 +27,8 @@ class AuthDialog(Toplevel):
        Label(userbox, text='Username:').pack(side=LEFT, anchor=E)
        Label(passbox, text='Password:').pack(side=LEFT, anchor=E)
         
-       self.usernameEntry = Entry(userbox, textvar=self.username, state=usernameState)
-       self.passwordEntry = Entry(passbox, textvar=self.password, show='*')
+       self.usernameEntry = Entry(userbox, textvar=self.username, state=usernameState, background='white')
+       self.passwordEntry = Entry(passbox, textvar=self.password, show='*', background='white')
        self.usernameEntry.pack(side=RIGHT, fill=X)
        self.passwordEntry.pack(side=RIGHT, fill=X)
        self.event_add('<<CloseDialog>>', '<Key-Escape>')

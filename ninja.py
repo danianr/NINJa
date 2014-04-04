@@ -10,6 +10,11 @@ from controller import Controller
 
 if __name__ == '__main__':
 
+   # Color Palette setup
+   tk = Tkinter.Tk()
+   tk.tk_setPalette(background='#ACCCE6', foreground='#003373', selectForeground='#003373',
+                    selectBackground='white', selectColor='#75AADB', troughColor='#75AADB')
+
 
    # Any queue / destination / access control setup should take place here;
    # Use a separate cups.Connection from the controller as the initializer
@@ -59,6 +64,6 @@ if __name__ == '__main__':
        conn.addPrinter(privatename, device='socket://%s' % (printername,) )
 
    devninjas = [ 'watson8-ninja.atg.columbia.edu' ]
-   controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=devninjas)
+   controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=devninjas, tk=tk)
    controller.downloadBulletins('https://wwwapp.cc.columbia.edu/atg/PageServer/bulletin')
    controller.start()

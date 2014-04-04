@@ -18,12 +18,10 @@ class IndexView(object):
        self.refreshReq = deque()
        self.dirty = False
        self.delay = 120
-       print 'IndexView(%s) internal = %s timestamp = %f' % (username, repr(self.internal), self.timestamp)
 
    def refresh(self, event=None):
        now = time.time()
        self.refreshReq.append(now)
-       print 'IndexView.refresh called %s' % repr(self.refreshReq)
        for req in self.refreshReq:
           if (req + self.delay) < now or self.dirty:
              break
@@ -33,7 +31,6 @@ class IndexView(object):
        self.internal = self.indexFunc(self.username)
        self.timestamp = now
        self.refreshReq.clear()
-       print '[refresh] IndexView(%s) internal = %s timestamp = %f' % (self.username, repr(self.internal), self.timestamp)
 
    def isDirty(self):
        return self.dirty
@@ -95,13 +92,10 @@ class CloudAdapter(object):
 
 
    def _sftp_wrapper(self, node, command_script):
-       print 'Entrance into sftp_wrapper(%s, %s)' % (node, command_script)
        p = Popen( [self.sftp, node], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=False, bufsize=1024, cwd=self.landing)
        p.communicate(command_script)
        maxtime = time.time() + 36
-       print 'maxtime = ', maxtime
        while ( time.time() < maxtime ):
-          print 'polling subprocess'
           retstatus = p.poll()
           if retstatus == 0:
              return True
@@ -114,7 +108,6 @@ class CloudAdapter(object):
 
 
    def registerGridList(self, gridlist):
-       print 'registering gridlist:', gridlist
        self.gridlist = gridlist 
 
    def getHeaders(self, username):
@@ -143,7 +136,6 @@ class CloudAdapter(object):
               sheets = (pageinfo + 1 ) >> 2
            if printer is not None and printer != '0.0.0.0':
               try:
-                  print 'attempting for printer gethostbyaddr(%s)' % (printer,)
                   (printer, aliases, ip_list) = gethostbyaddr(printer)
               except:
                   printer = 'UNKNOWN'
@@ -152,12 +144,10 @@ class CloudAdapter(object):
 
            if ipaddr is not None and ipaddr != '0.0.0.0':
               try:
-                  print 'attempting for client gethostbyaddr(%s)' % (ipaddr,)
                   (client, aliases, ip_list)  = gethostbyaddr(ipaddr)
               except:
                   client = 'unknown'
            else:
-              print 'using localhost for client'
               client = 'localhost'
            index.append((uuid, sha512, created, sheets, duplex, client, printer, username, title))
        return index 
@@ -176,7 +166,6 @@ class CloudAdapter(object):
         if gridlist is None:
            gridlist = self.gridlist
 
-        print 'Entrance into retrieveJob(%s, %s, %s)' % (username, sha512, repr(gridlist))
         if gridlist is not None:
            try:
                 nodes = userrand.sample(gridlist, 3)
@@ -204,7 +193,6 @@ class CloudAdapter(object):
         if gridlist is None:
            gridlist = self.gridlist
 
-        print 'Entrance into storeJob(%s, %s)' % (repr(job), repr(gridlist))
 
         
         if gridlist is not None:
