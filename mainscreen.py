@@ -1,10 +1,10 @@
 from Tkinter import *
+from ttk import *
 from os import popen
 from jobqueue import *
 from remoteframe import RemoteFrame
 import time
 import cups
-import ttk
 
 
 
@@ -14,20 +14,19 @@ class MainScreen(Frame):
        apply(Frame.__init__, (self, master), cnf)
        self.pack(expand=YES, fill=BOTH)
        self.tk  = master
-       self.notebook = ttk.Notebook(master=self)
+       self.notebook = Notebook(master=self)
 
        self.totalWidth = 1180
        self.totalHeight = 940
        self.rightWidth  = 560
-       self.slideRatio  = 0.80
 
        self.instructions = StringVar()
        self.instructions.set('Left arrow selects Local jobs, Right arrow selects remote jobs, Enter prints')
        self.messageDisplay = messageDisplay
        self.instrbar = Label(textvar=self.instructions, master=self)
        self.instrbar.pack(side=BOTTOM, fill=X, expand=N)
-       self.hpane = ttk.PanedWindow(orient=HORIZONTAL, width=self.totalWidth, height=self.totalHeight)
-       self.vpane = ttk.PanedWindow(orient=VERTICAL,width=self.rightWidth, height=self.totalHeight)
+       self.hpane = PanedWindow(orient=HORIZONTAL, width=self.totalWidth, height=self.totalHeight)
+       self.vpane = PanedWindow(orient=VERTICAL,width=self.rightWidth, height=self.totalHeight)
        self.mdisplay = Frame()
        self.messageDisplay.registerMessageFrame(self.mdisplay)
        self.messageDisplay.registerErrorCallback(self.errorCallback)
@@ -64,31 +63,16 @@ class MainScreen(Frame):
        self.unbind_all('<Key-Tab>')
        self.unbind_all('<Shift-Key-Tab>')
        self.event_add('<<SwitchView>>', '<Key-Tab>')
+       self.event_add('<<SwitchView>>', '<Shift-Key-Tab>')
+       self.event_add('<<Logout>>',     '<Key-Escape>')
+       
        self.bind_all('<<SwitchView>>', self.switchView )
+       self.bind_all('<<LocalJobs>>',  lambda e: self.local.joblist.focus_set() )
+       self.bind_all('<<RemoteJobs>>', lambda e: self.remote.joblist.focus_set() )
+       self.bind_all('<<Logout>>',     self.logout )
 
-       self.bind_all('<<LocalJobs>>', self.switchLocal )
-       self.bind_all('<<RemoteJobs>>', self.switchRemote )
-       self.event_add('<<Logout>>', '<Key-Escape>')
-       self.bind_all('<<Logout>>', self.logout )
        self.jobWidget =  ( self.local.joblist, self.unclaimed.joblist )
 
-   def switchLocal(self, event=None):
-       self.hpane.sashpos(0, newpos=int(self.totalWidth * self.slideRatio))
-       self.remote.joblist['background'] = '#cdc9c5'
-       self.local.joblist['background']  = 'white'
-       self.local.joblist.focus_set()
-
-   def switchRemote(self, event=None):
-       self.hpane.sashpos(0, newpos=int(self.totalWidth * (1 - self.slideRatio)) )
-       self.local.joblist['background'] = '#cdc9c5'
-       self.remote.joblist['background'] = 'white'
-       self.remote.joblist.focus_set()
-
-   def resetView(self):
-       self.hpane.sashpos(0,newpos=self.totalWidth - self.rightWidth)
-       self.remote.joblist['background'] = 'white'
-       self.local.joblist['background'] = 'white'
-       self.local.joblist.focus_set()
 
    def errorCallback(self, message):
        err = Toplevel(master=self.tk)
@@ -106,8 +90,6 @@ class MainScreen(Frame):
        nexttab = ( self.notebook.index(current) + 1 ) % self.notebook.index('end')
        self.notebook.select(nexttab)
        self.jobWidget[nexttab].focus_set()
-       if nexttab == 0:
-          self.resetView()
 
    def takefocus(self):
        if self.local is not None and self.local.joblist is not None:
@@ -144,7 +126,9 @@ class LocalFrame(Frame):
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
                              ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
-       self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont',background='white')
+       self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont',background='white',
+                selectforeground='white', selectbackground='#003373', highlightthickness='4', highlightcolor='red')
+
        self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
 
        # Key Bindings

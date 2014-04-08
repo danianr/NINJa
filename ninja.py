@@ -18,6 +18,8 @@ if __name__ == '__main__':
 
    style = ttk.Style()
    style.configure('TNotebook',background='#ACCCE6', foreground='#003373' ) 
+   style.configure('PanedWindow',background='#75AADB', foreground='#003373' ) 
+   style.configure('PanedWindow',separator='pink', fill='orange', vseparator='purple', hseparator='green' ) 
    
 
    style.map('TNotebook.Tab', background=[('selected','#75AADB'), ('!active', '#ACCCE6')],

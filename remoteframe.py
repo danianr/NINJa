@@ -26,7 +26,7 @@ class RemoteFrame(Frame):
                              ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
 
        self.jobHeader.pack(expand=YES, fill=X, anchor=N)
-       self.joblist = Listbox(master=self, background='white', font='TkFixedFont', height=40, width=60)
+       self.joblist = Listbox(master=self, background='white', font='TkFixedFont', height=40, width=60, selectbackground='#007333', selectforeground='white', highlightthickness='4', highlightcolor='red')
        self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
        self.jobs = dict()
        self.currentDisplay = []
