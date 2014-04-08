@@ -1,10 +1,10 @@
 from Tkinter import *
-from ttk import *
 from os import popen
 from jobqueue import *
 from remoteframe import RemoteFrame
 import time
 import cups
+import ttk
 
 
 
@@ -14,14 +14,15 @@ class MainScreen(Frame):
        apply(Frame.__init__, (self, master), cnf)
        self.pack(expand=YES, fill=BOTH)
        self.tk  = master
-       self.notebook = Notebook(master=self)
+       self.notebook = ttk.Notebook(master=self)
+
        self.instructions = StringVar()
        self.instructions.set('Left arrow selects Local jobs, Right arrow selects remote jobs, Enter prints')
        self.messageDisplay = messageDisplay
        self.instrbar = Label(textvar=self.instructions, master=self)
        self.instrbar.pack(side=BOTTOM, fill=X, expand=N)
-       self.hpane = PanedWindow(orient=HORIZONTAL, width=1180,height=940)
-       self.vpane = PanedWindow(orient=VERTICAL,width=560,height=940)
+       self.hpane = ttk.PanedWindow(orient=HORIZONTAL, width=1180,height=940)
+       self.vpane = ttk.PanedWindow(orient=VERTICAL,width=560,height=940)
        self.mdisplay = Frame()
        self.messageDisplay.registerMessageFrame(self.mdisplay)
        self.messageDisplay.registerErrorCallback(self.errorCallback)
@@ -33,7 +34,7 @@ class MainScreen(Frame):
        self.vpane.add(self.mdisplay)
        self.hpane.add(self.vpane)
        self.notebook.add(self.hpane)
-       self.notebook.tab(0, text=username)
+       self.notebook.tab(0, text=username + "'s jobs")
        self.unclaimed = UnclaimedFrame(username, jobqueue, conn, authHandler, self.errorCallback)
        self.notebook.add(self.unclaimed)
        self.notebook.tab(1, text="Unclaimed jobs")
@@ -73,7 +74,6 @@ class MainScreen(Frame):
        err.after(6000, err.destroy)
 
    def switchView(self, e):
-       print 'switchView called / e:', repr(e)
        if isinstance(e.widget, Listbox):
           e.widget.selection_clear(0, 'end')
        current = self.notebook.select()

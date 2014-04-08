@@ -1,4 +1,5 @@
 import Tkinter
+import ttk
 import cups
 import os
 import re
@@ -15,6 +16,13 @@ if __name__ == '__main__':
    tk.tk_setPalette(background='#ACCCE6', foreground='#003373', selectForeground='#003373',
                     selectBackground='white', selectColor='#75AADB', troughColor='#75AADB')
 
+   style = ttk.Style()
+   style.configure('TNotebook',background='#ACCCE6', foreground='#003373' ) 
+   
+
+   style.map('TNotebook.Tab', background=[('selected','#75AADB'), ('!active', '#ACCCE6')],
+                              foreground=[('selected','white'), ('!disabled', '#003373')],
+                              font=[('!active', '-adobe-helvetica-medium-r-normal--14-140-75-75-p-77-iso8859-1')])
 
    # Any queue / destination / access control setup should take place here;
    # Use a separate cups.Connection from the controller as the initializer
