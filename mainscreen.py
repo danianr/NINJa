@@ -16,13 +16,18 @@ class MainScreen(Frame):
        self.tk  = master
        self.notebook = ttk.Notebook(master=self)
 
+       self.totalWidth = 1180
+       self.totalHeight = 940
+       self.rightWidth  = 560
+       self.slideRatio  = 0.80
+
        self.instructions = StringVar()
        self.instructions.set('Left arrow selects Local jobs, Right arrow selects remote jobs, Enter prints')
        self.messageDisplay = messageDisplay
        self.instrbar = Label(textvar=self.instructions, master=self)
        self.instrbar.pack(side=BOTTOM, fill=X, expand=N)
-       self.hpane = ttk.PanedWindow(orient=HORIZONTAL, width=1180,height=940)
-       self.vpane = ttk.PanedWindow(orient=VERTICAL,width=560,height=940)
+       self.hpane = ttk.PanedWindow(orient=HORIZONTAL, width=self.totalWidth, height=self.totalHeight)
+       self.vpane = ttk.PanedWindow(orient=VERTICAL,width=self.rightWidth, height=self.totalHeight)
        self.mdisplay = Frame()
        self.messageDisplay.registerMessageFrame(self.mdisplay)
        self.messageDisplay.registerErrorCallback(self.errorCallback)
@@ -60,9 +65,30 @@ class MainScreen(Frame):
        self.unbind_all('<Shift-Key-Tab>')
        self.event_add('<<SwitchView>>', '<Key-Tab>')
        self.bind_all('<<SwitchView>>', self.switchView )
+
+       self.bind_all('<<LocalJobs>>', self.switchLocal )
+       self.bind_all('<<RemoteJobs>>', self.switchRemote )
        self.event_add('<<Logout>>', '<Key-Escape>')
        self.bind_all('<<Logout>>', self.logout )
        self.jobWidget =  ( self.local.joblist, self.unclaimed.joblist )
+
+   def switchLocal(self, event=None):
+       self.hpane.sashpos(0, newpos=int(self.totalWidth * self.slideRatio))
+       self.remote.joblist['background'] = '#cdc9c5'
+       self.local.joblist['background']  = 'white'
+       self.local.joblist.focus_set()
+
+   def switchRemote(self, event=None):
+       self.hpane.sashpos(0, newpos=int(self.totalWidth * (1 - self.slideRatio)) )
+       self.local.joblist['background'] = '#cdc9c5'
+       self.remote.joblist['background'] = 'white'
+       self.remote.joblist.focus_set()
+
+   def resetView(self):
+       self.hpane.sashpos(0,newpos=self.totalWidth - self.rightWidth)
+       self.remote.joblist['background'] = 'white'
+       self.local.joblist['background'] = 'white'
+       self.local.joblist.focus_set()
 
    def errorCallback(self, message):
        err = Toplevel(master=self.tk)
@@ -80,6 +106,8 @@ class MainScreen(Frame):
        nexttab = ( self.notebook.index(current) + 1 ) % self.notebook.index('end')
        self.notebook.select(nexttab)
        self.jobWidget[nexttab].focus_set()
+       if nexttab == 0:
+          self.resetView()
 
    def takefocus(self):
        if self.local is not None and self.local.joblist is not None:
@@ -121,11 +149,7 @@ class LocalFrame(Frame):
 
        # Key Bindings
        self.joblist.bind('<Return>', self.handleAuth, add=True)
-       switchToLocal = 'tk::TabToWindow [tk_focusNext %s]' % (self._w,)
-       #self.unbind_all('<Key-Tab>')
-       #self.unbind_all('<Shift-Key-Tab>')
-       self.bind_all('<Key-Left>', switchToLocal, add=False)
-
+       self.event_add('<<LocalJobs>>', '<Key-Left>')
        self.jobMapping = None
        self.nextRefresh = self.after_idle(self.refresh)
 

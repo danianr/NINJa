@@ -32,10 +32,8 @@ class RemoteFrame(Frame):
        self.currentDisplay = []
 
        self.joblist.bind('<Return>', self.handleAuth, add=True)
-       #self.unbind_all('<Key-Tab>')
-       #self.unbind_all('<Shift-Key-Tab>')
-       switchToRemote = 'tk::TabToWindow [tk_focusNext %s]' % (self._w,)
-       self.bind_all('<Key-Right>', switchToRemote, add=False)
+       self.event_add('<<RemoteJobs>>', '<Key-Right>')
+
        self.nextRefresh = self.after_idle(self.refresh)
 
 
