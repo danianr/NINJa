@@ -21,13 +21,12 @@ class RemoteFrame(Frame):
        self.remoteIndex = IndexView(username, cloudAdapter.getIndex, cloudAdapter.indexStr)
        self.viewTimestamp = 1
 
-       self.pack(expand=YES, fill=BOTH)
-       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
-                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
-
-       self.jobHeader.pack(expand=YES, fill=X, anchor=N)
-       self.joblist = Listbox(master=self, background='white', font='TkFixedFont', height=40, width=60, selectbackground='#007333', selectforeground='white', highlightthickness='4', highlightcolor='red')
-       self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
+       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
+                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), padx='4', anchor='sw', font='TkFixedFont' )
+       self.jobHeader.place(in_=self, x=0, y=30, width=self['width'], height=30, anchor='sw')
+       self.joblist = Listbox(master=self, background='white', font='TkFixedFont', selectbackground='#007333', selectforeground='white', highlightthickness='3', highlightcolor='#75AADB')
+       self.joblist.place(in_=self, x=0, y=30, width=self['width'], height=self['height'] - 30, anchor='nw')
+       self.pack()
        self.jobs = dict()
        self.currentDisplay = []
 

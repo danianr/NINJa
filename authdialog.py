@@ -35,6 +35,7 @@ class AuthDialog(Toplevel):
        self.usernameEntry.bind('<Key-Return>', lambda e: self.passwordEntry.focus_set())
        self.passwordEntry.bind('<Key-Return>', self.authenticateKerberos )
        self.bind('<<CloseDialog>>', self.cleanup )
+       self.wm_geometry('%dx%d+%d+%d' % (300, 90, 450, 480))
 
    def authenticateKerberos(self, event):
        try:

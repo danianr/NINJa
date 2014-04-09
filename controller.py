@@ -24,8 +24,9 @@ class Controller(object):
          self.tk = tk
       else:
          self.tk = Tk()
-      self.tk['width'] = 1280
-      self.tk['height'] = 1024
+      self.tk['width']  = self.tk.winfo_screenwidth()
+      self.tk['height'] = self.tk.winfo_screenheight()
+      self.tk.wm_title('Columbia University NINJa Printing System')
 
       self.publicName = public
       self.privateName = private
@@ -72,15 +73,20 @@ class Controller(object):
                                       authHandler=self.authorize.authorizeJobs,
                                       messageDisplay=self.messageDisplay,
                                       logoutCb=self.logoutCallback,
-                                      master=self.tk)
+                                      master=self.tk, width=self.tk['width'], height=self.tk['height'])
+         self.mainscreen.wm_title("Columbia University NINJa Printing System    Logged in as uni:"
+                                  + self.loggedInUsername)
+         self.tk.wm_attributes('-fullscreen', 1)
          self.mainscreen.takefocus()
       else:
          self.loggedInUsername = None
          self.login = AuthDialog(self.authCallback, master=self.tk)
+         self.login.wm_title('Columbia University NINJa Printing System')
 
 
    def logoutCallback(self):
        self.messageDisplay.registerMessageFrame(None)
+       self.tk.wm_attributes('-fullscreen', 0)
        self.mainscreen.destroy()
        self.mainscreen = None
        self.messageDisplay.clearQuota()
@@ -116,6 +122,7 @@ class Controller(object):
          self.conn.acceptJobs(self.publicName)
          print 'Starting Controller and accepting incoming jobs'
          self.login = AuthDialog(self.authCallback, master=self.tk)
+         self.login.wm_title('Columbia University NINJa Printing System')
          self.login.takefocus()
          self.tk.wm_withdraw()
          self.tk.mainloop()

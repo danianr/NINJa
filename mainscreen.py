@@ -16,30 +16,32 @@ class MainScreen(Frame):
        self.tk  = master
        self.notebook = Notebook(master=self)
 
-       self.totalWidth = 1180
-       self.totalHeight = 940
-       self.rightWidth  = 560
+       height = self['height'] - 60
+       width = self['width']
+       paneHeight  = 820
+       msgDsplyHeight = 200
+       rightWidth  = 560
 
        self.instructions = StringVar()
        self.instructions.set('Left arrow selects Local jobs, Right arrow selects remote jobs, Enter prints')
        self.messageDisplay = messageDisplay
        self.instrbar = Label(textvar=self.instructions, master=self)
        self.instrbar.pack(side=BOTTOM, fill=X, expand=N)
-       self.hpane = PanedWindow(orient=HORIZONTAL, width=self.totalWidth, height=self.totalHeight)
-       self.vpane = PanedWindow(orient=VERTICAL,width=self.rightWidth, height=self.totalHeight)
-       self.mdisplay = Frame()
+       self.hpane = PanedWindow(orient=HORIZONTAL, width=width, height=height)
+       self.vpane = PanedWindow(orient=VERTICAL,width=rightWidth - 10, height=height)
+       self.mdisplay = Frame(width=rightWidth, height=msgDsplyHeight)
        self.messageDisplay.registerMessageFrame(self.mdisplay)
        self.messageDisplay.registerErrorCallback(self.errorCallback)
 
-       self.local = LocalFrame(username, jobqueue, conn, authHandler, self.errorCallback)
-       self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler, self.errorCallback)
+       self.local = LocalFrame(username, jobqueue, conn, authHandler, self.errorCallback, width=width - rightWidth, height=paneHeight)
+       self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler, self.errorCallback, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
        self.hpane.add(self.local)
        self.vpane.add(self.remote)
        self.vpane.add(self.mdisplay)
        self.hpane.add(self.vpane)
        self.notebook.add(self.hpane)
        self.notebook.tab(0, text=username + "'s jobs")
-       self.unclaimed = UnclaimedFrame(username, jobqueue, conn, authHandler, self.errorCallback)
+       self.unclaimed = UnclaimedFrame(username, jobqueue, conn, authHandler, self.errorCallback, height=height, width=width)
        self.notebook.add(self.unclaimed)
        self.notebook.tab(1, text="Unclaimed jobs")
        self.notebook.pack(side=TOP, fill=BOTH, expand=Y)
@@ -122,14 +124,15 @@ class LocalFrame(Frame):
        self.auth    = authHandler
        self.errorcb = errorcb
 
-       self.pack(expand=YES, fill=BOTH)
-       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
-                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
-       self.jobHeader.pack(expand=YES, fill=X, anchor=N)
-       self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont',background='white',
-                selectforeground='white', selectbackground='#003373', highlightthickness='4', highlightcolor='red')
-
-       self.joblist.pack(expand=YES, fill=BOTH, anchor=N)
+       
+       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
+                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont',
+                             padx='4', anchor='sw' )
+       self.jobHeader.place(in_=self,x=0, y=30, anchor='sw', width=self['width'], height=30)
+       self.joblist = Listbox(master=self, font='TkFixedFont',background='white',
+                selectforeground='white', selectbackground='#003373', highlightthickness='3', highlightcolor='#75AADB')
+       self.joblist.place(in_=self, x=0, y=30, width=self['width'], height=self['height'] - 30, anchor='nw')
+       self.pack()
 
        # Key Bindings
        self.joblist.bind('<Return>', self.handleAuth, add=True)
@@ -169,14 +172,15 @@ class UnclaimedFrame(Frame):
        self.auth             = authHandler
        self.errorcb          = errorcb
 
-       self.pack(expand=YES, fill=BOTH)
-       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s %6s' % \
-                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont' )
-       self.jobHeader.pack(expand=YES, fill=X, anchor=N)
-       self.joblist = Listbox(master=self, height=60, width=60,font='TkFixedFont',background='white')
-       self.joblist.pack(expand=YES, fill=X, anchor=N)
+       
+       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
+                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), padx='4', anchor='sw', font='TkFixedFont' )
+       self.jobHeader.place(in_=master, x=0, y=30, width=self['width'], height=30,anchor='sw')
+       self.joblist = Listbox(master=self, font='TkFixedFont',background='white', highlightthickness='3',
+                          selectbackground='#003373', selectforeground='white', highlightcolor='#75AADB')
+       self.joblist.place(in_=master, x=0, y=30, width=self['width'] - 4, height=self['height'] - 30, anchor='nw', bordermode="outside")
        self.joblist.bind('<Return>', self.handleAuth, add=True)
-
+       self.pack()
        self.jobMapping  = None
        self.nextRefresh = self.after_idle(self.refresh)
 
