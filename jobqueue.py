@@ -1,5 +1,5 @@
 from Tkinter import *
-from os import popen
+import os
 from joblist import JobList
 import cups
 import re
@@ -22,8 +22,8 @@ class Job(object):
        # and job-originating-user-name, otherwise these attributes will be blank
        digest_cmd = '/usr/bin/openssl dgst -sha512 %s' % ( doc['file'] )
        pagecount_cmd = './pagecount.sh %s %s' % ( doc['document-format'], doc['file'] )
-       sha512 = popen(digest_cmd).read()
-       pagecount = popen(pagecount_cmd).read()
+       sha512 = os.popen(digest_cmd).read()
+       pagecount = os.popen(pagecount_cmd).read()
        try:
            self.pages = int(pagecount)
        except ValueError:
@@ -69,6 +69,7 @@ class Job(object):
 
    def removeTmpFile(self):
        if self.tmpfile is not None and self.tmpfile != "":
+          print 'Removing tmpfile(%s) for job %d\n' % ( self.tmpfile, self.jobId)
           os.remove(self.tmpfile)
 
 
@@ -182,6 +183,7 @@ class JobQueue(object):
           self.unclaimed.appendleft(job)
           if self.unclaimedMapFrame is not None:
              self.unclaimedMapFrame.setDirty()
+       job.removeTmpFile()
 
 
    def remove(self, removedJobs):
