@@ -69,7 +69,6 @@ class Job(object):
 
    def removeTmpFile(self):
        if self.tmpfile is not None and self.tmpfile != "":
-          print 'Removing tmpfile(%s) for job %d\n' % ( self.tmpfile, self.jobId)
           os.remove(self.tmpfile)
 
 
@@ -160,6 +159,7 @@ class JobQueue(object):
              j = Job(self.conn, jobId )
              if not j.remote:
                 self.add(j)
+             j.removeTmpFile()
           except cups.IPPError as e:
              print("caught an IPPError",e)
              continue
@@ -183,7 +183,6 @@ class JobQueue(object):
           self.unclaimed.appendleft(job)
           if self.unclaimedMapFrame is not None:
              self.unclaimedMapFrame.setDirty()
-       job.removeTmpFile()
 
 
    def remove(self, removedJobs):
