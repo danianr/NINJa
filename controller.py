@@ -27,7 +27,8 @@ class Controller(object):
       self.tk['width']  = self.tk.winfo_screenwidth()
       self.tk['height'] = self.tk.winfo_screenheight()
       self.tk.wm_title('Columbia University NINJa Printing System')
-
+      self.tk.setvar(name='PRINT_INTERLOCK', value='0')
+      print self.tk.getvar(name='PRINT_INTERLOCK')
       self.publicName = public
       self.privateName = private
       self.gridlist = gridlist

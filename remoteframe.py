@@ -37,7 +37,9 @@ class RemoteFrame(Frame):
 
 
    def handleAuth(self, event=None):
-
+       if self.getvar('PRINT_INTERLOCK') == '1':
+          return
+       self.event_generate('<<Printing>>')
        self.after_cancel(self.nextRefresh)
        del self.selectedList[:]
        remoteJobIds = set()

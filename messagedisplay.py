@@ -64,6 +64,30 @@ class MessageDisplay(object):
    def registerErrorCallback(self, errorcb):
        self.errorcb = errorcb
 
+   def getInterlock(self):
+       if self.messageFrame is None:
+          return None
+       else:
+          interlock = self.messageFrame.getvar("PRINT_INTERLOCK")
+          print 'interlock = %s\n' % (interlock,)
+          return interlock
+
+   def claimInterlock(self):
+       if self.messageFrame is None:
+          return
+       else:
+          print 'claiming interlock'
+          self.messageFrame.setvar(name='PRINT_INTERLOCK', value='1')
+          return
+
+   def releaseInterlock(self):
+       if self.messageFrame is None:
+          return
+       else:
+          print 'releasing interlock'
+          self.messageFrame.setvar(name='PRINT_INTERLOCK', value='0')
+          return
+
    def update(self, event=None):
        now = time.time()
        if self.bulletins.has_key('quota'):

@@ -32,6 +32,8 @@ class MainScreen(Frame):
        self.mdisplay = Frame(width=rightWidth, height=msgDsplyHeight)
        self.messageDisplay.registerMessageFrame(self.mdisplay)
        self.messageDisplay.registerErrorCallback(self.errorCallback)
+       self.popupMessage = StringVar()
+       self.popupMessage.set('Please wait, your document is being printed')
 
        self.local = LocalFrame(username, jobqueue, conn, authHandler, self.errorCallback, width=width - rightWidth, height=paneHeight)
        self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler, self.errorCallback, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
@@ -67,13 +69,15 @@ class MainScreen(Frame):
        self.event_add('<<SwitchView>>', '<Key-Tab>')
        self.event_add('<<SwitchView>>', '<Shift-Key-Tab>')
        self.event_add('<<Logout>>',     '<Key-Escape>')
-       
+      
+       self.bind_all('<<Printing>>',   self.popupStatus) 
        self.bind_all('<<SwitchView>>', self.switchView )
        self.bind_all('<<LocalJobs>>',  lambda e: self.local.joblist.focus_set() )
        self.bind_all('<<RemoteJobs>>', lambda e: self.remote.joblist.focus_set() )
        self.bind_all('<<Logout>>',     self.logout )
 
        self.jobWidget =  ( self.local.joblist, self.unclaimed.joblist )
+
 
 
    def errorCallback(self, message):
@@ -84,6 +88,17 @@ class MainScreen(Frame):
        print "Error: %s" % (message,)
        self.tk.update_idletasks()
        err.after(6000, err.destroy)
+
+   def popupStatus(self, event=None):
+       popup = Toplevel(master=self.tk)
+       def closePopup(event):
+           print 'closing popup window on event:', repr(event)
+           popup.destroy()
+
+       self.bind_all('<<Finished>>', closePopup)
+       pulabel = Label(textvariable=self.popupMessage, master=popup)
+       pulabel.pack()
+       
 
    def switchView(self, e):
        if isinstance(e.widget, Listbox):
@@ -97,6 +112,8 @@ class MainScreen(Frame):
        if self.local is not None and self.local.joblist is not None:
              self.local.joblist.focus_set()
 
+   def wm_title(self, title):
+       self.tk.wm_title(title)
 
    def setInstructions(self, instructions):
        self.instrbar.set(instructions)
@@ -105,6 +122,8 @@ class MainScreen(Frame):
        return self.mdisplay
 
    def logout(self, e):
+       if self.getvar('PRINT_INTERLOCK') == '1':
+          return
        self.unbind_all('<<SwitchView>>')
        self.unbind_all('<<Logout>>')
        self.unclaimed.destroy()
@@ -142,6 +161,9 @@ class LocalFrame(Frame):
 
 
    def handleAuth(self, event=None):
+       if self.getvar('PRINT_INTERLOCK') == '1':
+          return
+       self.event_generate('<<Printing>>')
        self.after_cancel(self.nextRefresh)
        selectedList = self.jobMapping.map(self.joblist.curselection())
        self.auth(selectedList, self.errorcb, self.loggedInUsername)
@@ -186,6 +208,9 @@ class UnclaimedFrame(Frame):
 
 
    def handleAuth(self, event=None):
+       if self.getvar('PRINT_INTERLOCK') == '1':
+          return
+       self.event_generate('<<Printing>>')
        self.after_cancel(self.nextRefresh)
        selectedList = self.jobMapping.map(self.joblist.curselection())
        self.auth(selectedList, self.errorcb, self.loggedInUsername)
