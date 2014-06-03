@@ -24,19 +24,14 @@ class PageServerAuth(object):
 
 
    def authorizeJobs(self, selectedJobs, errorcb, authname):
-       print 'Entering authorizeJobs'
-       print 'PRINT_INTERLOCK = %s' % (self.messageDisplay.getInterlock(),)
-       print repr(selectedJobs)
        requestId=self.idGenerator()
 
        for j in selectedJobs:
           self.messageDisplay.claimInterlock()
-          print 'PRINT_INTERLOCK = %s' % (self.messageDisplay.getInterlock(),)
           url = '/atg/PageServer/query/%s/%s/%.5x/%d' % (self.hostname, authname, requestId, j.pages)
           http = httplib.HTTPSConnection(self.servername)
           http.request("GET", url)
           resp = http.getresponse()
-          print resp.status, resp.reason
           xml = resp.read()
           root = ET.fromstring(xml)
           queryResponse = root.find('queryResponse').attrib
@@ -79,29 +74,26 @@ class PageServerAuth(object):
                  confirm = filter(lambda ev: ( ev.has_key('notify-job-id') and ev.has_key('job-state') and
                                                ev['notify-job-id'] == job.jobId and ev['job-state'] > 6),
                                                                          conn.getNotifications([sub])['events'])
-              print 'Job: %s %s at %s\n' % (job.jobId, confirm['notify-text'], confirm['printer-up-time'])
            except cups.IPPError:
-               print 'caught an IPPError(%s) while trying to print [%s] %s\n' % ( status, job.jobId, description)
+               print 'caught an IPPError() while trying to print [%s]\n' % ( job.jobId, )
            finally:
+               self.messageDisplay.messageFrame.event_generate('<<Finished>>')
                self.messageDisplay.releaseInterlock()
 
 
        # define a private function to check the notifications
        def checkNotifications():
-             print "entering checkNotifications"
              notifications = conn.getNotifications([sub])
-             print repr(notifications['events'])
              completed = filter(lambda ev: (ev['notify-subscribed-event'] == 'job-completed'), notifications['events'])
              completed = filter(lambda ev: (ev['notify-job-id'] == job.jobId), completed)
-             print repr(completed)
              if len(completed) == 0:
                 mf.after(3000, checkNotifications)
              else:
                 mf.after_cancel(timeout)
                 conn.cancelSubscription(sub)
                 attr = self.conn.getJobAttributes(job.jobId)
-                print "time-at-completed: ",repr(attr['time-at-completed'])
                 self.messageDisplay.releaseInterlock()
+                self.messageDisplay.messageFrame.event_generate('<<Finished>>')
                 self.pageAccounting(self.hostname, job.username, requestId, attr['job-media-sheets-completed'])
 
 
@@ -111,10 +103,8 @@ class PageServerAuth(object):
        try:
           self.conn.moveJob(job_id=job.jobId, job_printer_uri=self.privateUri)
        except cups.IPPError:
-          print 'print IPPError: %s\n' % (description,)
+          print 'print IPPError: \n' 
           self.messageDisplay.releaseInterlock()
-       self.messageDisplay.waitInterlock()
-       self.messageDisplay.messageFrame.event_generate('<<Finished>>')
        
 
 

@@ -90,6 +90,7 @@ class MainScreen(Frame):
        err.after(6000, err.destroy)
 
    def popupStatus(self, event=None):
+       print 'displaying popup status message'
        popup = Toplevel(master=self.tk)
        def closePopup(event):
            print 'closing popup window on event:', repr(event)

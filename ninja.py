@@ -62,16 +62,23 @@ if __name__ == '__main__':
 
    if (privatename, None) not in cupsDestinations:
        modelsRE = [ re.compile('(?i).*"(HP) (LaserJet P4515)"'), re.compile('(?i).*"(hp) (LaserJet 9050)"') ]
-       drivermap = dict()
        pjlcmd = '\033%-12345X@PJL\n@PJL INFO ID\n'
        pjl = telnetlib.Telnet(printername, 9100, 7)
        pjl.write(pjlcmd)
        time.sleep(10)
        (n, model, string)  = pjl.expect(modelsRE)
-       print model.group(1), model.group(2)
        pjl.close()
-
-       conn.addPrinter(privatename, device='socket://%s' % (printername,) )
+       if model.group(2) == 'LaserJet P4515': 
+         conn.addPrinter(privatename, ppdname='drv:///hpcups.drv/hp-laserjet_p4515x.ppd',
+                                      device='socket://%s' % (printername,) )
+         print 'Added a LaserJet P4515x for %s\n' % (privatename,)
+       elif model.group(2) == 'LaserJet 9050':
+         conn.addPrinter(privatename, ppdname='drv:///hpcups.drv/hp-laserjet_9050-pcl3.ppd',
+                                      device='socket://%s' % (printername,) )
+         print 'Added a LaserJet 9050 for %s\n' % (privatename,)
+       else:
+         conn.addPrinter(privatename, device='socket://%s' % (printername,) )
+         print 'Added a generic JetDirect socket printer for %s\n' % (privatename,)
 
    devninjas = [ 'watson8-ninja.atg.columbia.edu' ]
    controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=devninjas, tk=tk)
