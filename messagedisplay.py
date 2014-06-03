@@ -88,6 +88,12 @@ class MessageDisplay(object):
           self.messageFrame.setvar(name='PRINT_INTERLOCK', value='0')
           return
 
+   def waitInterlock(self):
+       if self.messageFrame is None:
+          return
+       if self.messageFrame.getvar('PRINT_INTERLOCK') == '0':
+          self.messageFrame.waitvar('PRINT_INTERLOCK')
+
    def update(self, event=None):
        now = time.time()
        if self.bulletins.has_key('quota'):
