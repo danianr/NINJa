@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <errno.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <search.h>
@@ -12,6 +13,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#define NUM_USERS 30000
+#define EXPIRE_TIME 14400
 
 #define DEFAULT_CONTROL_PATH "/tmp/keepersock"
 #define DEFAULT_MCAST_ADDRESS "233.0.14.56"
@@ -51,9 +54,6 @@ struct circular_queue {
     struct circular_queue  *prev;
     struct circular_queue  *next;
 } *circular;
-
-#define NUM_USERS 30000
-#define EXPIRE_TIME 14400
 
 
 unsigned long clean_queue(struct userqueue *q, unsigned long duration){
@@ -219,21 +219,58 @@ void clean_exit(){
     free(sockaddr);
     exit(0);
 }
-       
+
 
 void export(int sockfd, char *filename){
    struct circular_queue *q = circular;
    struct circular_queue *initial = NULL;
+   struct jobinfo *j;
+   char username[16];
+   char client[256];
+   char printer[256];
+   char uuid[33];
+   char sha512[129];
+   char title[65];
+   FILE *dumpfile;
 
    dprintf(sockfd, "Calling export with filename:%s\n", filename);
+   dumpfile = fopen(filename, "w");
+   if (!dumpfile){
+      dprintf(sockfd, "unable to open [%s] errno: %d\n", filename, errno);
+      return;
+   }
+
 
    /* ensure we only do one pass of the queue, while also checking
       for an initial NULL ptr */   
    while ( q != initial ){
        if (!initial) initial = q;
        dprintf(sockfd, "%s\n", q->queue->username);
+       for(j=q->queue->head; j != NULL; j=j->next){
+         memset(uuid,   0, 33);
+         memset(sha512, 0,129);
+         memset(title,  0, 65);
+         memset(client,  0, 256);
+         memset(printer, 0, 256);
+
+         inet_ntop(AF_INET, &j->src, client, 256);
+         inet_ntop(AF_INET, &j->dst, printer, 256);
+         strncpy(uuid,   j->uuid,    32);
+         strncpy(sha512, j->sha512, 128);
+         strncpy(title,  j->title,   64);
+
+         /* While the colon is visually nice, it appears too often in the title,
+            thus the use of the ASCII Field Separator (fs) character, a non-printing
+            character of decimal value 28 (034); newlines are not allowed so they
+            still represent a logical record separator as opposed to the ASCII (036) */
+
+         fprintf(dumpfile, "%32s\034%128s\034%lu\034%u\034%s\034%s\034%s\034%s\n",
+                 uuid, sha512, j->created, j->pageinfo, client, printer, username, title);
+       }
        q = q->next;
    }
+   fclose(dumpfile);
+   dprintf(sockfd, "Export to [%s] complete.\n", filename);
    return;
 }
 
@@ -398,10 +435,11 @@ int                sd;
 int main(int argc, char **argv){
    ENTRY item;
    ENTRY *found_item;
-   struct circular_queue *c;
+   struct circular_queue *circ;
    struct userqueue *queue;
    struct jobinfo *j;
    char *src, *dst, *mcastaddr, *port;
+   char *a, *b, *c, *d, *ip;  /* for ip address cleaning */
    struct in_addr *isrc, *idst;
    char uuid[UUIDSIZE], sha512[SHA512SIZE], username[USERSIZE], title[TITLESIZE];
    unsigned long created;
@@ -550,20 +588,66 @@ int main(int argc, char **argv){
         being treated as octal, inet_pton() does not
         exhibit this behavior [and also will not accept
         hex-digits either], so inet_aton() and inet_pton()
-        should not be intermixed. */
+        should not be intermixed.
+
+        Updated: except that inet_pton _DOES_ exhibit this
+        same brokeness on Linux. */
+
 
      src = (char *) malloc(SRCSIZE);
      memset(src, 0, SRCSIZE);
      memcpy(src, &buf[SRCOFFSET], SRCSIZE - 1);
 
      dst = (char *) malloc(DSTSIZE);
-     memset(dst, 0, DSTSIZE - 1);
+     memset(dst, 0, DSTSIZE);
      memcpy(dst, &buf[DSTOFFSET], DSTSIZE - 1);
+     
+     /* post-process the dotted quad to return a "proper" IPv4 */
+     ip = (char *) malloc(16); 
+     a=src;
+     a[3]='\0';
+     b=src + 4;
+     b[3]='\0';
+     c=src + 8;
+     c[3]='\0';
+     d=src + 12;
+     d[3]='\0';
+     if (*a == '0') ++a;
+     if (*a == '0') ++a;
+     if (*b == '0') ++b;
+     if (*b == '0') ++b;
+     if (*c == '0') ++c;
+     if (*c == '0') ++c;
+     if (*d == '0') ++d;
+     if (*d == '0') ++d;
+     sprintf(ip, "%s.%s.%s.%s", a, b, c, d);
+     strncpy(src, ip, 16);
+     
+     a=dst;
+     a[3]='\0';
+     b=dst + 4;
+     b[3]='\0';
+     c=dst + 8;
+     c[3]='\0';
+     d=dst + 12;
+     d[3]='\0';
+     if (*a == '0') ++a;
+     if (*a == '0') ++a;
+     if (*b == '0') ++b;
+     if (*b == '0') ++b;
+     if (*c == '0') ++c;
+     if (*c == '0') ++c;
+     if (*d == '0') ++d;
+     if (*d == '0') ++d;
+     sprintf(ip, "%s.%s.%s.%s", a, b, c, d);
+     strncpy(dst, ip, 16);
+     free(ip);
 
      isrc = (struct in_addr *) malloc( sizeof(struct in_addr));
      idst = (struct in_addr *) malloc( sizeof(struct in_addr));
      memset(isrc, 0, sizeof(struct in_addr));
      memset(idst, 0, sizeof(struct in_addr));
+     printf("%s src:%s  dst:%s\n", uuid, src, dst);
      if ( inet_pton(AF_INET, src, isrc) == 0){
         inet_pton(AF_INET, "0.0.0.0", isrc);
      }
@@ -595,13 +679,13 @@ int main(int argc, char **argv){
         }else{
            /* Prepend the new queue to the circular queue, ensuring a full cycle
               before it is reached */
-           c = (struct circular_queue *) malloc(sizeof(struct circular_queue));
-           c->queue = queue;
-           c->cleaned = &queue->cleaned;
-           c->next = circular;
-           c->prev = circular->prev;
-           circular->prev->next = c;
-           circular->prev = c;
+           circ = (struct circular_queue *) malloc(sizeof(struct circular_queue));
+           circ->queue = queue;
+           circ->cleaned = &queue->cleaned;
+           circ->next = circular;
+           circ->prev = circular->prev;
+           circular->prev->next = circ;
+           circular->prev = circ;
         }
         hsearch(item, ENTER);
      }
