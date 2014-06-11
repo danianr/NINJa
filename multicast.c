@@ -21,6 +21,9 @@
 #define SO_REUSEPORT 15
 #endif
 
+#define JOBINFO_ALLOC() ( (struct jobinfo *) malloc(sizeof(struct jobinfo)) )
+#define JOBINFO_FREE(x) ( free(x) )
+
 struct jobinfo {
     char uuid[32];
     char sha512[128];
@@ -41,13 +44,13 @@ struct userqueue {
 };
 
 
+/* create a a single instance in the global scope */
 struct circular_queue {
     struct userqueue *queue;
     unsigned long *cleaned;
     struct circular_queue  *prev;
     struct circular_queue  *next;
-};
-
+} *circular;
 
 #define NUM_USERS 30000
 #define EXPIRE_TIME 14400
@@ -66,14 +69,15 @@ unsigned long clean_queue(struct userqueue *q, unsigned long duration){
        p = j;
        j = j->next;
        /* free() for now, will likely need a freelist for performance */
-       free(p);
+       JOBINFO_FREE(p);
     }
 
     return (unsigned long) now;
 }
 
 
-void reaper(struct circular_queue *q){
+void reaper(struct circular_queue *cq){
+   struct circular_queue *q = cq;
    unsigned int sleeptime = 6;
    unsigned int sleepevery = 100;
    unsigned int counter = 1;
@@ -128,7 +132,7 @@ void append_job(struct userqueue *q, char *username, char *sha512, char *uuid,
 
 
      /* Hey, remember that freelist idea? */
-     j = (struct jobinfo *) malloc(sizeof(struct jobinfo));
+     j = JOBINFO_ALLOC();
      memset(j, 0, sizeof(struct jobinfo));
 
      memcpy(j->uuid, uuid, 32);
@@ -218,7 +222,18 @@ void clean_exit(){
        
 
 void export(int sockfd, char *filename){
+   struct circular_queue *q = circular;
+   struct circular_queue *initial = NULL;
 
+   dprintf(sockfd, "Calling export with filename:%s\n", filename);
+
+   /* ensure we only do one pass of the queue, while also checking
+      for an initial NULL ptr */   
+   while ( q != initial ){
+       if (!initial) initial = q;
+       dprintf(sockfd, "%s\n", q->queue->username);
+       q = q->next;
+   }
    return;
 }
 
@@ -275,7 +290,7 @@ void index_request(int sockfd, char *argument){
 }
 
     
-void control_channel(char **socketpath){
+void control_channel(char **controlpath){
    /* int csd is in the global scope, see above
       and contains the file descriptor of the control socket */
 
@@ -283,11 +298,12 @@ void control_channel(char **socketpath){
    int size,br, len, clifd, shutdown=0;
    char *cmdbuf, *argument;         /* cmd parsing */
 
+
    /* linux does not require the length of the sockaddr_un to be specified */
    len = sizeof(cliun);
    cmdbuf = (char *) malloc(1024);
    un.sun_family = AF_UNIX;
-   strcpy(un.sun_path, socketpath[0]);
+   strcpy(un.sun_path, controlpath[0]);
    csd = socket(AF_UNIX, SOCK_STREAM, 0);
    size = offsetof(struct sockaddr_un, sun_path) + strlen(un.sun_path);
 
@@ -316,6 +332,11 @@ void control_channel(char **socketpath){
 
          case INDEX_REQUEST:
             index_request(clifd, argument);
+            break;
+            ;;
+
+         case EXPORT:
+            export(clifd, argument);
             break;
             ;;
 
@@ -373,10 +394,11 @@ int                sd;
 #define TITLEOFFSET ( USEROFFSET + USERSIZE - 1)
 
 
+
 int main(int argc, char **argv){
    ENTRY item;
    ENTRY *found_item;
-   struct circular_queue *circular=NULL, *c;
+   struct circular_queue *c;
    struct userqueue *queue;
    struct jobinfo *j;
    char *src, *dst, *mcastaddr, *port;
@@ -392,7 +414,7 @@ int main(int argc, char **argv){
    int ecode, optval, ctrl, bytes_read = 0;
    pthread_t control_tid, reaper_tid;
 
-
+   circular = NULL;
    mcastaddr = DEFAULT_MCAST_ADDRESS;
    port = DEFAULT_MCAST_PORT;
    switch (argc){
