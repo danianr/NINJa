@@ -55,18 +55,21 @@ struct circular_queue {
 
 unsigned long clean_queue(struct userqueue *q, unsigned long duration){
     struct jobinfo *j, *p;
-    unsigned long now;
+    time_t now;
 
-    now = time(NULL);
+    /* use a single time value for evaluating each jobinfo structure */
+    time(&now);
+
     j = q->head;
     while ( (j != NULL) && (j->created + duration < now)){
        q->head = j->next;
        p = j;
        j = j->next;
+       /* free() for now, will likely need a freelist for performance */
        free(p);
     }
 
-    return now;
+    return (unsigned long) now;
 }
 
 
@@ -95,6 +98,8 @@ struct jobinfo *find_job(struct userqueue *q, char *uuid,
                          unsigned long created, struct in_addr *dst){
      struct jobinfo *j;
 
+     if (q == NULL) return NULL;
+
      j = q->head;
      while (j != NULL){
         if ( j->created == created  &&
@@ -102,6 +107,8 @@ struct jobinfo *find_job(struct userqueue *q, char *uuid,
              (strncmp(j->uuid, uuid, 32) == 0) ) return j;
         j = j->next;
      }
+
+     /* only reachable by a NULL pointer */
      return j;
 }
 
@@ -117,8 +124,10 @@ void append_job(struct userqueue *q, char *username, char *sha512, char *uuid,
         even though jobs are uniquely identified by uuid and
         the cups server to which it was submitted, creation
         time is a much eaiser first pass comparison */
-     if ( find_job(q, uuid, created, dst) ) return;
+     if ( find_job(q, uuid, created, dst) != NULL ) return;
 
+
+     /* Hey, remember that freelist idea? */
      j = (struct jobinfo *) malloc(sizeof(struct jobinfo));
      memset(j, 0, sizeof(struct jobinfo));
 
@@ -207,24 +216,72 @@ void clean_exit(){
     exit(0);
 }
        
+
+void export(int sockfd, char *filename){
+
+   return;
+}
+
+void index_request(int sockfd, char *argument){
+   char username[16];
+   char client[256];
+   char printer[256];
+   char uuid[33];
+   char sha512[129];
+   char title[65];
+   char *sp;                                        /* first space in argument string */
+   struct jobinfo *j;
+   ENTRY item, *found_item;                         /* hashmap structs */
+
+   /* tie the hashmap query directly to the username buffer */
+   item.key = username;
+   memset(username, 0, 16);
+
+   /* remove any trailing spaces */
+   if (sp=memccpy(username, argument, 32, 16)) *sp = '\0';
+
+   /* first lookup the queue for hashed by associated username */
+   if (found_item = hsearch(item, FIND)){
+      j = ((struct userqueue *) found_item->data)->head;
+
+      while (j){
+         memset(uuid,   0, 33);
+         memset(sha512, 0,129);
+         memset(title,  0, 65);
+         memset(client,  0, 256);
+         memset(printer, 0, 256);
+
+         inet_ntop(AF_INET, &j->src, client, 256);
+         inet_ntop(AF_INET, &j->dst, printer, 256);
+         strncpy(uuid,   j->uuid,    32);
+         strncpy(sha512, j->sha512, 128);
+         strncpy(title,  j->title,   64);
+
+         /* While the colon is visually nice, it appears too often in the title,
+            thus the use of the ASCII Field Separator (fs) character, a non-printing
+            character of decimal value 28 (034); newlines are not allowed so they
+            still represent a logical record separator as opposed to the ASCII (036) */
+
+         dprintf(sockfd, "%32s\034%128s\034%lu\034%u\034%s\034%s\034%s\034%s\n",
+                 uuid, sha512, j->created, j->pageinfo, client, printer, username, title);
+         j=j->next;
+      }
+
+   }else{
+       printf("No jobs found\n");
+   }
+
+   return;
+}
+
     
 void control_channel(char **socketpath){
    /* int csd is in the global scope, see above
       and contains the file descriptor of the control socket */
 
    struct sockaddr_un un, cliun;
-   struct jobinfo *j;
    int size,br, len, clifd, shutdown=0;
-   char *cmdbuf, *username, *argument, *sp;         /* cmd parsing */
-   char *uuid, *sha512, *client, *printer, *title;  /* display buffers */
-   ENTRY item, *found_item;                         /* hashmap structs */
-
-
-   /* tie the hashmap query directly to the username buffer */
-   username = (char *) malloc(16);
-   memset(username, 0, 16);
-   item.key = username;
-
+   char *cmdbuf, *argument;         /* cmd parsing */
 
    /* linux does not require the length of the sockaddr_un to be specified */
    len = sizeof(cliun);
@@ -258,48 +315,7 @@ void control_channel(char **socketpath){
       switch (control_command(cmdbuf, &argument)){
 
          case INDEX_REQUEST:
-
-            memset(username, 0, 16);
-            /* remove any trailing spaces */
-            if (sp=memccpy(username, argument, 32, 16)) *sp = '\0';
-
-            if (found_item = hsearch(item, FIND)){
-                j = ((struct userqueue *) found_item->data)->head;
-                client  = (char *) malloc(256);
-                printer = (char *) malloc(256);
-                uuid    = (char *) malloc(33);
-                sha512  = (char *) malloc(129);
-                title   = (char *) malloc(65);
-                memset(uuid,   0, 33);
-                memset(sha512, 0,129);
-                memset(title,  0, 65);
-
-                while (j){
-                  char *serv;
-                  memset(client,  0, 256);
-                  memset(printer, 0, 256);
-                  inet_ntop(AF_INET, &j->src, client, 256);
-                  inet_ntop(AF_INET, &j->dst, printer, 256);
-                  strncpy(uuid,   j->uuid,    32);
-                  strncpy(sha512, j->sha512, 128);
-                  strncpy(title,  j->title,   64);
-
-                  /* While the colon is visually nice, it appears too often in the title,
-                     thus the use of the ASCII Field Separator (fs) character, a non-printing
-                     character of decimal value 28 (034); newlines are not allowed so they
-                     still represent a logical record separator as opposed to the ASCII (036) */
-                  dprintf(clifd, "%32s\034%128s\034%lu\034%u\034%s\034%s\034%s\034%s\n", 
-                          uuid, sha512, j->created, j->pageinfo, client, printer, username, title);
-                  j=j->next;
-                }
-
-                /* clean up strings */
-                if (client)  free(client);
-                if (printer) free(printer);
-
-            }else{
-                printf("No jobs found\n");
-            }
+            index_request(clifd, argument);
             break;
             ;;
 
