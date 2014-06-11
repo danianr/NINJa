@@ -91,13 +91,13 @@ class MainScreen(Frame):
 
    def popupStatus(self, event=None):
        print 'displaying popup status message'
-       popup = Toplevel(master=self.tk)
+       popup = Toplevel(master=self.tk, width=800, height=230)
        def closePopup(event):
            print 'closing popup window on event:', repr(event)
            popup.destroy()
 
        self.bind_all('<<Finished>>', closePopup)
-       pulabel = Label(textvariable=self.popupMessage, master=popup)
+       pulabel = Label(textvariable=self.popupMessage, master=popup, font='-*-helvetica-medium-r-normal-*-34-*-*-*-*-*-iso8859-1')
        pulabel.pack()
        
 
