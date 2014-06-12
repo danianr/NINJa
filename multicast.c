@@ -2,14 +2,18 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <errno.h>
-#include <arpa/inet.h>
 #include <string.h>
 #include <search.h>
+
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <sys/un.h>
-#include <sys/types.h>
-#include <signal.h>
 #include <netdb.h>
+
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -191,6 +195,9 @@ int control_command(char *cmdbuffer, char **arg_offset){
    }else if (strncmp(cmdbuffer, "export", 6) == 0){
       *arg_offset = &cmdbuffer[7];
       return EXPORT;
+   }else if (strncmp(cmdbuffer, "import", 6) == 0){
+      *arg_offset = &cmdbuffer[7];
+      return BULK_LOAD;
    }else if (strncmp(cmdbuffer, "shutdown", 8) == 0){
       *arg_offset = NULL;
       return SHUTDOWN;
@@ -231,11 +238,11 @@ void export(int sockfd, char *filename){
    char uuid[33];
    char sha512[129];
    char title[65];
-   FILE *dumpfile;
+   int dumpfd;
 
    dprintf(sockfd, "Calling export with filename:%s\n", filename);
-   dumpfile = fopen(filename, "w");
-   if (!dumpfile){
+   dumpfd = open(filename, O_WRONLY | O_CREAT, S_IWUSR | S_IRUSR);
+   if (dumpfd == -1){
       dprintf(sockfd, "unable to open [%s] errno: %d\n", filename, errno);
       return;
    }
@@ -245,7 +252,8 @@ void export(int sockfd, char *filename){
       for an initial NULL ptr */   
    while ( q != initial ){
        if (!initial) initial = q;
-       dprintf(sockfd, "%s\n", q->queue->username);
+       memset(username, 0, 16);
+       strncpy(username, q->queue->username, 16);
        for(j=q->queue->head; j != NULL; j=j->next){
          memset(uuid,   0, 33);
          memset(sha512, 0,129);
@@ -264,13 +272,160 @@ void export(int sockfd, char *filename){
             character of decimal value 28 (034); newlines are not allowed so they
             still represent a logical record separator as opposed to the ASCII (036) */
 
-         fprintf(dumpfile, "%32s\034%128s\034%lu\034%u\034%s\034%s\034%s\034%s\n",
+         dprintf(dumpfd, "%32s\034%128s\034%lu\034%u\034%s\034%s\034%s\034%s\n",
                  uuid, sha512, j->created, j->pageinfo, client, printer, username, title);
        }
        q = q->next;
    }
-   fclose(dumpfile);
+   close(dumpfd);
    dprintf(sockfd, "Export to [%s] complete.\n", filename);
+   return;
+}
+
+
+#define IMPORT_BUFFER_SIZE 1024
+#define MAX_RECORD_SIZE 294
+#define SKIP_RECORD(x)  if (mark == end){ memset(buf,0,x);pos=0;end=0;continue;}else{ pos=mark+1;continue; }
+
+void import(int sockfd, char *filename){
+   struct in_addr isrc, idst;
+   struct jobinfo *j;
+   char username[16];
+   char client[256];
+   char printer[256];
+   char uuid[33];
+   char sha512[129];
+   char title[65];
+   char timestr[11];
+   char pginfostr[6];
+   int importfd, pos, mark, end, br;
+   unsigned long pageinfo, created, records=0;
+   char buf[IMPORT_BUFFER_SIZE], *nextfield, *sp;
+   ENTRY item, *found_item;
+
+   /* tie the hashmap query directly to the username buffer */
+   item.key = username;
+
+   memset(buf, 0, IMPORT_BUFFER_SIZE);
+   br=1;
+   pos=0;
+   end=0;
+
+   importfd = open(filename, O_RDONLY | O_CLOEXEC);
+   dprintf(sockfd, "Opened [%s] for reading on fd:%d\n", filename, importfd);
+   while (br > 0){
+      br = read(importfd, &buf[end], IMPORT_BUFFER_SIZE - end);
+      end += br;
+      for(mark=pos; mark < end; mark++){
+         if (buf[mark] == '\n') break;
+      }
+      if ( buf[mark] == '\n'){
+         memset(uuid, 0, 33);
+         nextfield = memccpy(uuid, &buf[pos], 28, 33);
+         /* handle the corrupted record by skipping to the next line */
+         if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
+         *(nextfield - 1) = '\0';
+         pos += nextfield - uuid;
+
+
+        
+         memset(sha512, 0, 129); 
+         nextfield = memccpy(sha512, &buf[pos], 28, 129);
+         if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
+         *(nextfield - 1) = '\0';
+         pos += nextfield - sha512;
+         
+
+         memset(timestr, 0, 11);
+         nextfield = memccpy(timestr, &buf[pos], 28, 11);         
+         if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
+         *(nextfield - 1) = '\0';
+         pos += nextfield - timestr;
+
+
+         memset(pginfostr, 0, 6);
+         nextfield = memccpy(pginfostr, &buf[pos], 28, 6);
+         if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
+         *(nextfield - 1) = '\0';
+         pos += nextfield - pginfostr;
+
+
+         memset(client, 0, 256);
+         nextfield = memccpy(client, &buf[pos], 28, 256);
+         if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
+         *(nextfield - 1) = '\0';
+         pos += nextfield - client;
+
+
+         memset(printer, 0, 256);
+         nextfield = memccpy(printer, &buf[pos], 28, 256);
+         if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
+         *(nextfield - 1) = '\0';
+         pos += nextfield - printer;
+
+
+         memset(username, 0, 16);
+         nextfield = memccpy(username, &buf[pos], 28, 16);
+         if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
+         *(nextfield - 1) = '\0';
+         pos += nextfield - username;
+
+
+         memset(title, 0, 65);
+         nextfield = memccpy(title, &buf[pos], 10, 65);
+         if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
+         *(nextfield - 1) = '\0';
+         pos += nextfield - username;
+
+         nextfield = NULL;
+         created  = atoi(timestr);
+         pageinfo = atoi(pginfostr);
+         
+
+         memset(&isrc, 0, sizeof(struct in_addr));
+         memset(&idst, 0, sizeof(struct in_addr));
+    
+         if ( inet_pton(AF_INET, client, &isrc) == 0){
+              inet_pton(AF_INET, "0.0.0.0", &isrc);
+         }
+
+         if ( inet_pton(AF_INET, printer, &idst) == 0){
+              inet_pton(AF_INET, "0.0.0.0", &idst);
+         }
+
+
+         /* remove any trailing spaces */
+         for(sp = username; sp < &username[15]; sp++){
+           if ( *sp == ' ') {*sp = '\0'; break;}
+         }
+
+         if (found_item = hsearch(item, FIND)){
+             append_job( (struct userqueue *) found_item->data, username, sha512, uuid, title, created,
+                        pageinfo >> 1, pageinfo % 2, &isrc, &idst );
+         }else{
+            struct userqueue *queue = (struct userqueue *) malloc(sizeof(struct userqueue));
+            memset(queue, 0, sizeof(struct userqueue));
+            strncpy(queue->username, username, 16);
+            append_job( queue, username, sha512, uuid, title, created, pageinfo >> 1, pageinfo % 2, &isrc, &idst );
+            item.data = queue;
+         }
+         ++records;
+    
+      }
+
+      /* if we have less space left than we expect to need, compress
+            the buffer down and reset the end  accordingly */
+      if ( (IMPORT_BUFFER_SIZE - pos) < MAX_RECORD_SIZE){      
+             printf("compacting buffer at pos:%d mark:%d end:%d\n");
+             memmove(buf, &buf[pos], end - pos);
+             memset(&buf[pos], 0, IMPORT_BUFFER_SIZE - pos);
+             end = pos;
+             pos = 0;
+      }
+   }
+   close(importfd);
+   dprintf(sockfd, "Imported %lu records from [%s]\n", records, filename);
+   
    return;
 }
 
@@ -374,6 +529,11 @@ void control_channel(char **controlpath){
 
          case EXPORT:
             export(clifd, argument);
+            break;
+            ;;
+
+         case BULK_LOAD:
+            import(clifd, argument);
             break;
             ;;
 
