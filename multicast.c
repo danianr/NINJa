@@ -57,8 +57,15 @@ struct circular_queue {
     unsigned long *cleaned;
     struct circular_queue  *prev;
     struct circular_queue  *next;
-} *circular;
+};
 
+typedef union {
+    struct circular_queue  **cir;
+    char *chr;
+    pthread_t  *pth;
+} channel_arg_t;
+
+pthread_t control_tid, reaper_tid;
 
 unsigned long clean_queue(struct userqueue *q, unsigned long duration){
     struct jobinfo *j, *p;
@@ -118,6 +125,36 @@ struct jobinfo *find_job(struct userqueue *q, char *uuid,
 
      /* only reachable by a NULL pointer */
      return j;
+}
+
+
+
+void add_userqueue(struct circular_queue **circular, struct userqueue *queue){
+     /* Add a new userqueue to the circular queue, pass in a reference to the
+        variable holding the circular queue reference, since the circular queue
+        starts out initialized to NULL */
+
+     struct circular_queue *c;
+
+     if (*circular == NULL){
+         /* create the circular queue with a single element, doubly-linked to itself */
+         *circular = (struct circular_queue *) malloc(sizeof(struct circular_queue));
+         (*circular)->queue = queue;
+         (*circular)->next = *circular;
+         (*circular)->prev = *circular;
+         (*circular)->cleaned = &queue->cleaned;
+         pthread_create(&reaper_tid, NULL, (void *) &reaper, *circular);
+     }else{
+         /* Prepend the new queue to the circular queue, ensuring a full cycle
+            before it is reached */
+         c = (struct circular_queue *) malloc(sizeof(struct circular_queue));
+         c->queue = queue;
+         c->cleaned = &queue->cleaned;
+         c->next = *circular;
+         c->prev = (*circular)->prev;
+         c->prev->next = c;
+         (*circular)->prev = c;
+     }
 }
 
 
@@ -228,8 +265,8 @@ void clean_exit(){
 }
 
 
-void export(int sockfd, char *filename){
-   struct circular_queue *q = circular;
+void export(int sockfd, char *filename, struct circular_queue **circular){
+   struct circular_queue *q = *circular;
    struct circular_queue *initial = NULL;
    struct jobinfo *j;
    char username[16];
@@ -287,7 +324,7 @@ void export(int sockfd, char *filename){
 #define MAX_RECORD_SIZE 294
 #define SKIP_RECORD(x)  if (mark == end){ memset(buf,0,x);pos=0;end=0;continue;}else{ pos=mark+1;continue; }
 
-void import(int sockfd, char *filename){
+void import(int sockfd, char *filename, struct circular_queue **circular){
    struct in_addr isrc, idst;
    struct jobinfo *j;
    char username[16];
@@ -300,7 +337,7 @@ void import(int sockfd, char *filename){
    char pginfostr[6];
    int importfd, pos, mark, end, br;
    unsigned long pageinfo, created, records=0;
-   char buf[IMPORT_BUFFER_SIZE], *nextfield, *sp;
+   char buf[IMPORT_BUFFER_SIZE], *nextfield;
    ENTRY item, *found_item;
 
    /* tie the hashmap query directly to the username buffer */
@@ -375,7 +412,7 @@ void import(int sockfd, char *filename){
          nextfield = memccpy(title, &buf[pos], 10, 65);
          if (nextfield == NULL) SKIP_RECORD(IMPORT_BUFFER_SIZE);
          *(nextfield - 1) = '\0';
-         pos += nextfield - username;
+         pos += nextfield - title;
 
          nextfield = NULL;
          created  = atoi(timestr);
@@ -393,12 +430,6 @@ void import(int sockfd, char *filename){
               inet_pton(AF_INET, "0.0.0.0", &idst);
          }
 
-
-         /* remove any trailing spaces */
-         for(sp = username; sp < &username[15]; sp++){
-           if ( *sp == ' ') {*sp = '\0'; break;}
-         }
-
          if (found_item = hsearch(item, FIND)){
              append_job( (struct userqueue *) found_item->data, username, sha512, uuid, title, created,
                         pageinfo >> 1, pageinfo % 2, &isrc, &idst );
@@ -408,6 +439,7 @@ void import(int sockfd, char *filename){
             strncpy(queue->username, username, 16);
             append_job( queue, username, sha512, uuid, title, created, pageinfo >> 1, pageinfo % 2, &isrc, &idst );
             item.data = queue;
+            add_userqueue(circular, queue);
             hsearch(item, ENTER);
          }
          ++records;
@@ -483,7 +515,7 @@ void index_request(int sockfd, char *argument){
 }
 
     
-void control_channel(char **controlpath){
+void control_channel(channel_arg_t *channel_args){
    /* int csd is in the global scope, see above
       and contains the file descriptor of the control socket */
 
@@ -496,7 +528,7 @@ void control_channel(char **controlpath){
    len = sizeof(cliun);
    cmdbuf = (char *) malloc(1024);
    un.sun_family = AF_UNIX;
-   strcpy(un.sun_path, controlpath[0]);
+   strcpy(un.sun_path, channel_args[0].chr);
    csd = socket(AF_UNIX, SOCK_STREAM, 0);
    size = offsetof(struct sockaddr_un, sun_path) + strlen(un.sun_path);
 
@@ -529,12 +561,12 @@ void control_channel(char **controlpath){
             ;;
 
          case EXPORT:
-            export(clifd, argument);
+            export(clifd, argument, channel_args[1].cir);
             break;
             ;;
 
          case BULK_LOAD:
-            import(clifd, argument);
+            import(clifd, argument, channel_args[1].cir);
             break;
             ;;
 
@@ -592,11 +624,10 @@ int                sd;
 #define TITLEOFFSET ( USEROFFSET + USERSIZE - 1)
 
 
-
 int main(int argc, char **argv){
    ENTRY item;
    ENTRY *found_item;
-   struct circular_queue *circ;
+   struct circular_queue *circular;
    struct userqueue *queue;
    struct jobinfo *j;
    char *src, *dst, *mcastaddr, *port;
@@ -608,14 +639,15 @@ int main(int argc, char **argv){
    char buf[BUFSIZE];
    char *pages_str, *created_str;
    char *hostname, *interface, *p;
-   char *controlpath[2] = { DEFAULT_CONTROL_PATH, "" };
+   char *controlpath;
+   channel_arg_t *channel_args;
    struct addrinfo *hints, **res;
    int ecode, optval, ctrl, bytes_read = 0;
-   pthread_t control_tid, reaper_tid;
 
-   circular = NULL;
+   
    mcastaddr = DEFAULT_MCAST_ADDRESS;
    port = DEFAULT_MCAST_PORT;
+   controlpath = strdup(DEFAULT_CONTROL_PATH);
    switch (argc){
 
        case 1:
@@ -624,7 +656,7 @@ int main(int argc, char **argv){
 
        case 2:
             if ( strncmp("-t", argv[1], 2) == 0 ){
-                port = DEFAULT_MCAST_PORT - 1;
+                port = "34425";
             }else{
                 port = strdup(argv[1]);
             }
@@ -638,7 +670,7 @@ int main(int argc, char **argv){
        case 4:
             mcastaddr = strdup(argv[1]);
             port = strdup(argv[2]);
-            controlpath[0] = strdup(argv[3]);
+            controlpath = strdup(argv[3]);
             break;;
 
        default:
@@ -647,13 +679,15 @@ int main(int argc, char **argv){
             break;;
    }
    dprintf(1, "Using multicast group %s:%s\n", mcastaddr, port);
-   dprintf(1, "Using UNIX socket %s for control\n", controlpath[0]);
+   dprintf(1, "Using UNIX socket %s for control\n", controlpath);
 
 
    hcreate(NUM_USERS);
 
-
-   pthread_create(&control_tid, NULL, (void *) &control_channel, controlpath);
+   channel_args = calloc(3, sizeof(channel_arg_t));
+   channel_args[0].chr = controlpath;
+   channel_args[1].cir = &circular;
+   pthread_create(&control_tid, NULL, (void *) &control_channel, channel_args);
 
    hints = (struct addrinfo *) malloc(sizeof(struct addrinfo));
    memset(hints, 0, sizeof(struct addrinfo));
@@ -829,25 +863,7 @@ int main(int argc, char **argv){
         append_job( queue, username, sha512, uuid, title, created,
                 pages, duplex, isrc, idst );
         item.data = queue;
-        if (!circular){
-           /* create the circular queue with a single element, doubly-linked to itself */
-           circular = (struct circular_queue *) malloc(sizeof(struct circular_queue));
-           circular->queue = queue;
-           circular->next = circular;
-           circular->prev = circular;
-           circular->cleaned = &queue->cleaned;
-           pthread_create(&reaper_tid, NULL, (void *) &reaper, circular);
-        }else{
-           /* Prepend the new queue to the circular queue, ensuring a full cycle
-              before it is reached */
-           circ = (struct circular_queue *) malloc(sizeof(struct circular_queue));
-           circ->queue = queue;
-           circ->cleaned = &queue->cleaned;
-           circ->next = circular;
-           circ->prev = circular->prev;
-           circular->prev->next = circ;
-           circular->prev = circ;
-        }
+        add_userqueue(&circular, queue);
         hsearch(item, ENTER);
      }
      free(isrc);
