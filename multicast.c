@@ -351,8 +351,11 @@ void import(int sockfd, char *filename, struct circular_queue **circular){
    importfd = open(filename, O_RDONLY | O_CLOEXEC);
    dprintf(sockfd, "Opened [%s] for reading on fd:%d\n", filename, importfd);
    while (br > 0){
-      br = read(importfd, &buf[end], IMPORT_BUFFER_SIZE - end);
-      end += br;
+      /* When there's room at the end of the buffer, refill it */
+      if (end < IMPORT_BUFFER_SIZE){
+         br = read(importfd, &buf[end], IMPORT_BUFFER_SIZE - end);
+         end += br;
+      }
       for(mark=pos; mark < end; mark++){
          if (buf[mark] == '\n') break;
       }
@@ -683,7 +686,7 @@ int main(int argc, char **argv){
 
 
    hcreate(NUM_USERS);
-
+   circular = NULL;
    channel_args = calloc(3, sizeof(channel_arg_t));
    channel_args[0].chr = controlpath;
    channel_args[1].cir = &circular;
