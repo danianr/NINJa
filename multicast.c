@@ -408,6 +408,7 @@ void import(int sockfd, char *filename){
             strncpy(queue->username, username, 16);
             append_job( queue, username, sha512, uuid, title, created, pageinfo >> 1, pageinfo % 2, &isrc, &idst );
             item.data = queue;
+            hsearch(item, ENTER);
          }
          ++records;
     
