@@ -65,7 +65,6 @@ typedef union {
     pthread_t  *pth;
 } channel_arg_t;
 
-pthread_t control_tid, reaper_tid;
 
 unsigned long clean_queue(struct userqueue *q, unsigned long duration){
     struct jobinfo *j, *p;
@@ -129,7 +128,7 @@ struct jobinfo *find_job(struct userqueue *q, char *uuid,
 
 
 
-void add_userqueue(struct circular_queue **circular, struct userqueue *queue){
+void add_userqueue(struct circular_queue **circular, struct userqueue *queue, pthread_t *reaper_tid){
      /* Add a new userqueue to the circular queue, pass in a reference to the
         variable holding the circular queue reference, since the circular queue
         starts out initialized to NULL */
@@ -143,7 +142,7 @@ void add_userqueue(struct circular_queue **circular, struct userqueue *queue){
          (*circular)->next = *circular;
          (*circular)->prev = *circular;
          (*circular)->cleaned = &queue->cleaned;
-         pthread_create(&reaper_tid, NULL, (void *) &reaper, *circular);
+         pthread_create(reaper_tid, NULL, (void *) &reaper, *circular);
      }else{
          /* Prepend the new queue to the circular queue, ensuring a full cycle
             before it is reached */
@@ -324,7 +323,7 @@ void export(int sockfd, char *filename, struct circular_queue **circular){
 #define MAX_RECORD_SIZE 294
 #define SKIP_RECORD(x)  if (mark == end){ memset(buf,0,x);pos=0;end=0;continue;}else{ pos=mark+1;continue; }
 
-void import(int sockfd, char *filename, struct circular_queue **circular){
+void import(int sockfd, char *filename, struct circular_queue **circular, pthread_t *reaper_tid){
    struct in_addr isrc, idst;
    struct jobinfo *j;
    char username[16];
@@ -442,7 +441,7 @@ void import(int sockfd, char *filename, struct circular_queue **circular){
             strncpy(queue->username, username, 16);
             append_job( queue, username, sha512, uuid, title, created, pageinfo >> 1, pageinfo % 2, &isrc, &idst );
             item.data = queue;
-            add_userqueue(circular, queue);
+            add_userqueue(circular, queue, reaper_tid);
             hsearch(item, ENTER);
          }
          ++records;
@@ -569,7 +568,7 @@ void control_channel(channel_arg_t *channel_args){
             ;;
 
          case BULK_LOAD:
-            import(clifd, argument, channel_args[1].cir);
+            import(clifd, argument, channel_args[1].cir, channel_args[2].pth);
             break;
             ;;
 
@@ -646,6 +645,7 @@ int main(int argc, char **argv){
    channel_arg_t *channel_args;
    struct addrinfo *hints, **res;
    int ecode, optval, ctrl, bytes_read = 0;
+   pthread_t control_tid, reaper_tid;
 
    
    mcastaddr = DEFAULT_MCAST_ADDRESS;
@@ -690,6 +690,7 @@ int main(int argc, char **argv){
    channel_args = calloc(3, sizeof(channel_arg_t));
    channel_args[0].chr = controlpath;
    channel_args[1].cir = &circular;
+   channel_args[2].pth = &reaper_tid;
    pthread_create(&control_tid, NULL, (void *) &control_channel, channel_args);
 
    hints = (struct addrinfo *) malloc(sizeof(struct addrinfo));
@@ -866,7 +867,7 @@ int main(int argc, char **argv){
         append_job( queue, username, sha512, uuid, title, created,
                 pages, duplex, isrc, idst );
         item.data = queue;
-        add_userqueue(&circular, queue);
+        add_userqueue(&circular, queue, &reaper_tid);
         hsearch(item, ENTER);
      }
      free(isrc);
