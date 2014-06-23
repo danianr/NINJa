@@ -71,7 +71,7 @@ class Controller(object):
                                       jobqueue=self.jobqueue,
                                       cloudAdapter=self.cloudAdapter,
                                       conn=self.conn,
-                                      authHandler=self.authorize.authorizeJobs,
+                                      authHandler=self.authorize,
                                       messageDisplay=self.messageDisplay,
                                       logoutCb=self.logoutCallback,
                                       master=self.tk, width=self.tk['width'], height=self.tk['height'])
@@ -86,6 +86,8 @@ class Controller(object):
 
 
    def logoutCallback(self):
+       if (self.messageDisplay.getInterlock() == '1'):
+          return
        self.messageDisplay.registerMessageFrame(None)
        self.tk.wm_attributes('-fullscreen', 0)
        self.mainscreen.destroy()

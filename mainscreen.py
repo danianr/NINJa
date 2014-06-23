@@ -35,15 +35,15 @@ class MainScreen(Frame):
        self.popupMessage = StringVar()
        self.popupMessage.set('Please wait, your document is being printed')
 
-       self.local = LocalFrame(username, jobqueue, conn, authHandler, self.errorCallback, width=width - rightWidth, height=paneHeight)
-       self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler, self.errorCallback, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
+       self.local = LocalFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, width=width - rightWidth, height=paneHeight)
+       self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler.authorizeJobs, self.errorCallback, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
        self.hpane.add(self.local)
        self.vpane.add(self.remote)
        self.vpane.add(self.mdisplay)
        self.hpane.add(self.vpane)
        self.notebook.add(self.hpane)
        self.notebook.tab(0, text=username + "'s jobs")
-       self.unclaimed = UnclaimedFrame(username, jobqueue, conn, authHandler, self.errorCallback, height=height, width=width)
+       self.unclaimed = UnclaimedFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, height=height, width=width)
        self.notebook.add(self.unclaimed)
        self.notebook.tab(1, text="Unclaimed jobs")
        self.notebook.pack(side=TOP, fill=BOTH, expand=Y)
@@ -68,6 +68,7 @@ class MainScreen(Frame):
        self.unbind_all('<Shift-Key-Tab>')
        self.event_add('<<SwitchView>>', '<Key-Tab>')
        self.event_add('<<SwitchView>>', '<Shift-Key-Tab>')
+       self.event_add('<<CancelJob>>',  '<Key-F5>')
        self.event_add('<<Logout>>',     '<Key-Escape>')
       
        self.bind_all('<<Printing>>',   self.popupStatus) 
@@ -75,19 +76,16 @@ class MainScreen(Frame):
        self.bind_all('<<LocalJobs>>',  lambda e: self.local.joblist.focus_set() )
        self.bind_all('<<RemoteJobs>>', lambda e: self.remote.joblist.focus_set() )
        self.bind_all('<<Logout>>',     self.logout )
+       self.bind_all('<<CancelJob>>',  authHandler.cancelCurrentJob )
 
        self.jobWidget =  ( self.local.joblist, self.unclaimed.joblist )
 
 
 
    def errorCallback(self, message):
-       err = Toplevel(master=self.tk)
-       errlabel = Label(text=message, master=err)
-       errlabel.pack()
-       err.pack()
-       print "Error: %s" % (message,)
+       self.popupMessage.set(message)
        self.tk.update_idletasks()
-       err.after(6000, err.destroy)
+       self.after(6000, self.event_generate('<<Finished>>'))
 
    def popupStatus(self, event=None):
        print 'displaying popup status message'

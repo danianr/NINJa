@@ -12,6 +12,7 @@ titleKey = 'job-name'
 uuidKey  = 'job-uuid'
 supportedUriKey = 'printer-uri-supported'
 
+
 class PageServerAuth(object):
    def __init__(self, private, hostname, idGenerator, display, conn):
        self.hostname   = hostname
@@ -21,10 +22,12 @@ class PageServerAuth(object):
        self.conn = conn
        printers = self.conn.getPrinters()
        self.privateUri = printers[private][supportedUriKey]
-
+       self.currentJob = None				       # Support for event Handlers
+       self.errorcb = None                                     # Support for event Handlers
 
    def authorizeJobs(self, selectedJobs, errorcb, authname):
        requestId=self.idGenerator()
+       self.errorcb = errorcb
 
        for j in selectedJobs:
           self.messageDisplay.claimInterlock()
@@ -44,11 +47,21 @@ class PageServerAuth(object):
                errorcb('Insufficient Quota')
                self.messageDisplay.quota(root, 'queryResponse', True)
                self.messageDisplay.releaseInterlock() 
+
           
+   def cancelCurrentJob(self, event):
+       print repr(event.__dict__)
+       if ( self.currentJob is not None and self.messageDisplay.getInterlock() == '1' ):
+          if self.errorcb is not None:
+             self.errorcb("Canceling Print Job...")
+          print 'User canceled job', self.currentJob.jobId
+          self.conn.cancelJob(self.currentJob.jobId, purge_job=True)
+
 
 
    def releaseJob(self, job, requestId):
 
+       self.currentJob = job
        sub = self.conn.createSubscription(self.privateUri, ['all'], lease_duration=630)
        if self.messageDisplay.messageFrame is None:
           print "a messageFrame MUST be registered with the MessageDisplay prior to job release"
@@ -68,7 +81,7 @@ class PageServerAuth(object):
               confirm = filter(lambda ev: (ev['notify-subscribed-event'] == 'job-completed' and
                                            ev['notify-job-id'] == job.jobId), conn.getNotifications([sub])['events'])
               if len(confirm) == 0:
-                 conn.cancelJob(job.jobId, purgeJob=True)
+                 conn.cancelJob(job.jobId, purge_job=True)
               while len(confirm) == 0:
                  time.sleep(0.300);
                  confirm = filter(lambda ev: ( ev.has_key('notify-job-id') and ev.has_key('job-state') and
@@ -77,13 +90,16 @@ class PageServerAuth(object):
            except cups.IPPError:
                print 'caught an IPPError() while trying to print [%s]\n' % ( job.jobId, )
            finally:
+               self.currentJob = None
                self.messageDisplay.messageFrame.event_generate('<<Finished>>')
                self.messageDisplay.releaseInterlock()
 
 
        # define a private function to check the notifications
        def checkNotifications():
+          try:
              notifications = conn.getNotifications([sub])
+             print repr(notifications['events'])
              completed = filter(lambda ev: (ev['notify-subscribed-event'] == 'job-completed'), notifications['events'])
              completed = filter(lambda ev: (ev['notify-job-id'] == job.jobId), completed)
              if len(completed) == 0:
@@ -92,11 +108,12 @@ class PageServerAuth(object):
                 mf.after_cancel(timeout)
                 conn.cancelSubscription(sub)
                 attr = self.conn.getJobAttributes(job.jobId)
+                self.currentJob = None
                 self.messageDisplay.releaseInterlock()
                 self.messageDisplay.messageFrame.event_generate('<<Finished>>')
                 self.pageAccounting(self.hostname, job.username, requestId, attr['job-media-sheets-completed'])
-
-
+          except cups.IPPError:
+                print "caught an IPPError"
 
        timeout = mf.after(600000, jobTimeout)
        check = mf.after(4000, checkNotifications)
