@@ -17,6 +17,9 @@ class MainScreen(Frame):
        self.tk  = master
        self.notebook = Notebook(master=self)
 
+       # Manually set the initial autologout, afterwards use the resetAutologout function
+       self.autologout = self.after(180000, self.logout)
+
        self.logo = PhotoImage(file="logo.gif")
        height = self['height'] - (self.logo.height() + 60 )
        width = self['width']
@@ -41,15 +44,15 @@ class MainScreen(Frame):
        self.popupMessage.set('Please wait, your document is being printed')
 
        Label(image=self.logo, justify=LEFT).pack(in_=self, side=TOP,anchor=W, fill=X,expand=Y)
-       self.local = LocalFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, width=width - rightWidth, height=paneHeight)
-       self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler.authorizeJobs, self.errorCallback, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
+       self.local = LocalFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, self.resetAutologout, width=width - rightWidth, height=paneHeight)
+       self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler.authorizeJobs, self.errorCallback, self.resetAutologout, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
        self.hpane.add(self.local)
        self.vpane.add(self.remote)
        self.vpane.add(self.mdisplay)
        self.hpane.add(self.vpane)
        self.notebook.add(self.hpane)
        self.notebook.tab(0, text=username + "'s jobs")
-       self.unclaimed = UnclaimedFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, height=height, width=width)
+       self.unclaimed = UnclaimedFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, self.resetAutologout, height=height, width=width)
        self.notebook.add(self.unclaimed)
        self.notebook.tab(1, text="Unclaimed jobs")
        self.notebook.pack(side=TOP, fill=BOTH, expand=Y)
@@ -126,8 +129,20 @@ class MainScreen(Frame):
    def getMessageDisplay(self):
        return self.mdisplay
 
-   def logout(self, e):
+   def resetAutologout(self, inactivity):
+       print "resetting auto logout to ", inactivity
+       if self.autologout is not None:
+          print "self.autologout was previously set"
+          self.after_cancel(self.autologout)
+          self.autologout = None
+       self.autologout = self.after(inactivity * 1000, self.logout)
+
+   def logout(self, e=None):
+       if self.autologout is not None:
+          self.after_cancel(self.autologout)
+          self.autologout = None
        if self.getvar('PRINT_INTERLOCK') == '1':
+          self.resetAutologout(45)
           return
        self.unbind_all('<<SwitchView>>')
        self.unbind_all('<<Logout>>')
@@ -140,7 +155,7 @@ class MainScreen(Frame):
 
 
 class LocalFrame(Frame):
-   def __init__(self, username, jobqueue, conn, authHandler, errorcb, master=None, **cnf):
+   def __init__(self, username, jobqueue, conn, authHandler, errorcb, resetAutologout, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.loggedInUsername = username
        self.jq      = jobqueue
@@ -148,7 +163,7 @@ class LocalFrame(Frame):
        self.auth    = authHandler
        self.errorcb = errorcb
 
-       
+       self.resetAutologout = resetAutologout
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
                              ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont',
                              padx='4', anchor='sw' )
@@ -172,6 +187,7 @@ class LocalFrame(Frame):
        self.after_cancel(self.nextRefresh)
        selectedList = self.jobMapping.map(self.joblist.curselection())
        self.auth(selectedList, self.errorcb, self.loggedInUsername)
+       self.resetAutologout(45)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
@@ -191,13 +207,14 @@ class LocalFrame(Frame):
 
 
 class UnclaimedFrame(Frame):
-   def __init__(self, username, jobqueue, conn, authHandler, errorcb, master=None, **cnf):
+   def __init__(self, username, jobqueue, conn, authHandler, errorcb, resetAutologout, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.loggedInUsername = username
        self.jq               = jobqueue
        self.conn             = conn
        self.auth             = authHandler
        self.errorcb          = errorcb
+       self.resetAutologout  = resetAutologout
 
        
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
@@ -220,6 +237,7 @@ class UnclaimedFrame(Frame):
        selectedList = self.jobMapping.map(self.joblist.curselection())
        self.auth(selectedList, self.errorcb, self.loggedInUsername)
        self.event_generate('<<SwitchView>>')
+       self.resetAutologout(45)
        self.nextRefresh = self.after_idle(self.refresh)
 
 

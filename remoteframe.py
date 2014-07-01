@@ -9,22 +9,27 @@ import cups
 
 class RemoteFrame(Frame):
 
-   def __init__(self, username, jobqueue, cloudAdapter, conn, authHandler, errorcb, master=None, **cnf):
+   def __init__(self, username, jobqueue, cloudAdapter, conn, authHandler, errorcb, resetAutologout,
+                                                                                 master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.selectedList     = []
        self.loggedInUsername = username
        self.jq               = jobqueue
        self.cloudAdapter     = cloudAdapter
-       self.auth    = authHandler
-       self.errorcb = errorcb
-       self.conn    = conn
-       self.remoteIndex = IndexView(username, cloudAdapter.getIndex, cloudAdapter.indexStr)
-       self.viewTimestamp = 1
+       self.auth             = authHandler
+       self.errorcb          = errorcb
+       self.resetAutologout  = resetAutologout
+       self.conn             = conn
+       self.remoteIndex      = IndexView(username, cloudAdapter.getIndex, cloudAdapter.indexStr)
+       self.viewTimestamp    = 1
 
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
                              ( 'Id', 'User', 'Client', 'Title', 'Sheets'), padx='4', anchor='sw', font='TkFixedFont' )
+
        self.jobHeader.place(in_=self, x=0, y=30, width=self['width'], height=30, anchor='sw')
+
        self.joblist = Listbox(master=self, background='white', font='TkFixedFont', selectbackground='#007333', selectforeground='white', highlightthickness='3', highlightcolor='#75AADB')
+
        self.joblist.place(in_=self, x=0, y=30, width=self['width'], height=self['height'] - 30, anchor='nw')
        self.pack()
        self.jobs = dict()
@@ -55,6 +60,7 @@ class RemoteFrame(Frame):
               remoteJobIds.add(jobId)
        self.selectedList = map(lambda j: self.jq[j], remoteJobIds)
        self.auth(self.selectedList, self.errorcb, self.loggedInUsername)
+       self.resetAutologout(45)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
