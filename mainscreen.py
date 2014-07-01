@@ -3,6 +3,7 @@ from ttk import *
 from os import popen
 from jobqueue import *
 from remoteframe import RemoteFrame
+import sys
 import time
 import cups
 
@@ -16,14 +17,18 @@ class MainScreen(Frame):
        self.tk  = master
        self.notebook = Notebook(master=self)
 
-       height = self['height'] - 60
+       self.logo = PhotoImage(file="logo.gif")
+       height = self['height'] - (self.logo.height() + 60 )
        width = self['width']
-       paneHeight  = 820
        msgDsplyHeight = 200
        rightWidth  = 560
+       paneHeight = height - 30
+
+       print >> sys.stderr, time.time(), 'height:%d width: %d paneHeight:%d msgDsplyHeigh:%s rightWidth:%d' \
+             % (height, width, paneHeight, msgDsplyHeight, rightWidth)
 
        self.instructions = StringVar()
-       self.instructions.set('Left arrow selects Local jobs, Right arrow selects remote jobs, Enter prints')
+       self.instructions.set('[Left] selects Local jobs, [Right] selects cloud jobs, [Tab] switches view\t\t[Enter] prints')
        self.messageDisplay = messageDisplay
        self.instrbar = Label(textvar=self.instructions, master=self)
        self.instrbar.pack(side=BOTTOM, fill=X, expand=N)
@@ -35,6 +40,7 @@ class MainScreen(Frame):
        self.popupMessage = StringVar()
        self.popupMessage.set('Please wait, your document is being printed')
 
+       Label(image=self.logo, justify=LEFT).pack(in_=self, side=TOP,anchor=W, fill=X,expand=Y)
        self.local = LocalFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, width=width - rightWidth, height=paneHeight)
        self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler.authorizeJobs, self.errorCallback, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
        self.hpane.add(self.local)
