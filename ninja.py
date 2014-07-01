@@ -4,9 +4,28 @@ import cups
 import os
 import re
 import socket
+import sys
 import telnetlib
 import time
 from controller import Controller
+
+
+def name_tuple():
+   # Determine the name of the associated printer by replacing the "ninja" substring
+   # of the current hostname with "printer".  Validate this hostname by performing
+   # a gethostbyname and proceed to use the canonical hostname for the appsocket:
+   # interface of the private destination.
+
+   ninjaname = (os.uname())[1]
+   ninjaname = (socket.gethostbyname_ex(ninjaname))[0]
+   print >> sys.stderr, time.time(), "ninja:", ninjaname 
+   printername = ninjaname.replace('ninja', 'printer')
+   print >> sys.stderr, time.time(), "printername:", printername
+   printername = (socket.gethostbyname_ex(printername))[0]
+   print >> sys.stderr, time.time(), "printername:", printername
+   privatename = printername.replace('.','_')
+   print >> sys.stderr, time.time(), "privatequeue:", privatename
+   return (ninjaname, printername, privatename)
 
 
 if __name__ == '__main__':
@@ -49,16 +68,19 @@ if __name__ == '__main__':
    conn.disablePrinter('remote')
    conn.acceptJobs('remote')
 
-   # Determine the name of the associated printer by replacing the "ninja" substring
-   # of the current hostname with "printer".  Validate this hostname by performing
-   # a gethostbyname and proceed to use the canonical hostname for the appsocket:
-   # interface of the private destination.
-   ninjaname = (os.uname())[1]
-   ninjaname = (socket.gethostbyname_ex(ninjaname))[0]
-   printername = ninjaname.replace('ninja', 'printer')
-   privatename = printername.replace('.','_')
-   printername = (socket.gethostbyname_ex(printername))[0]
+   ninjaname   = None
+   printername = None
+   privatename = None
+   for attempt in range(10):
+      try: 
+         (ninjaname, printername, privatename) = name_tuple()
+         break
+      except:
+         time.sleep(2)
 
+   if (ninjaname is None or printername is None or privatename is None):
+       print >> sys.stderr, "Unable to determine DNS names needed to continue"
+       exit(2)
 
    if (privatename, None) not in cupsDestinations:
        modelsRE = [ re.compile('(?i).*"(HP) (LaserJet P4515)"'), re.compile('(?i).*"(hp) (LaserJet 9050)"') ]
@@ -80,7 +102,12 @@ if __name__ == '__main__':
          conn.addPrinter(privatename, device='socket://%s' % (printername,) )
          print 'Added a generic JetDirect socket printer for %s\n' % (privatename,)
 
-   devninjas = [ 'watson8-ninja.atg.columbia.edu' ]
-   controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=devninjas, tk=tk)
+   gridlist = [ 'watson8-ninja.atg.columbia.edu' ]
+   print >> sys.stderr, time.time(), "gridlist: ",repr(gridlist)
+   controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=gridlist, tk=tk)
+   print >> sys.stderr, time.time(), "Controller initialized"
+
    controller.downloadBulletins('https://wwwapp.cc.columbia.edu/atg/PageServer/bulletin')
+   print >> sys.stderr, time.time(), "Bulletins downloaded"
+  
    controller.start()
