@@ -1,6 +1,7 @@
 import Tkinter
 import ttk
 import cups
+import httplib
 import os
 import re
 import socket
@@ -8,6 +9,16 @@ import sys
 import telnetlib
 import time
 from controller import Controller
+
+
+
+def read_gridlist():
+    url = '/~dr2481/gridlist.txt'
+    http = httplib.HTTPConnection('www.columbia.edu')
+    http.request("GET", url)
+    resp = http.getresponse()
+    content = resp.read()
+    return filter(lambda s:  len(s) > 0 and s[0] != '#', content.split('\n'))
 
 
 def name_tuple():
@@ -102,7 +113,8 @@ if __name__ == '__main__':
          conn.addPrinter(privatename, device='socket://%s' % (printername,) )
          print 'Added a generic JetDirect socket printer for %s\n' % (privatename,)
 
-   gridlist = [ 'watson8-ninja.atg.columbia.edu' ]
+   
+   gridlist = read_gridlist()
    print >> sys.stderr, time.time(), "gridlist: ",repr(gridlist)
    controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=gridlist, tk=tk)
    print >> sys.stderr, time.time(), "Controller initialized"
