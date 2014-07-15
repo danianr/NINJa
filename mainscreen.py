@@ -21,7 +21,7 @@ class MainScreen(Frame):
        self.autologout = self.after(180000, self.logout)
 
        self.logo = PhotoImage(file="logo.gif")
-       height = self['height'] - (self.logo.height() + 60 )
+       height = self['height'] - self.logo.height() - 30
        width = self['width']
        msgDsplyHeight = 200
        rightWidth  = 560
@@ -31,10 +31,10 @@ class MainScreen(Frame):
              % (height, width, paneHeight, msgDsplyHeight, rightWidth)
 
        self.instructions = StringVar()
-       self.instructions.set('[Left] selects Local jobs, [Right] selects cloud jobs, [Tab] switches view\t\t[Enter] prints')
+       self.info = ('[Left] selects Left Frame\t[Right] selects Right Frame\n[Esc] Logout\n[Tab] Classic View       \t[Enter] Prints Selected Job',
+              '[Tab] Return to Main Screen\n[Esc] Logout\n[Enter] Prints Selected Job without further prompting')
+       self.instructions.set(self.info[0])
        self.messageDisplay = messageDisplay
-       self.instrbar = Label(textvar=self.instructions, master=self)
-       self.instrbar.pack(side=BOTTOM, fill=X, expand=N)
        self.hpane = PanedWindow(orient=HORIZONTAL, width=width, height=height)
        self.vpane = PanedWindow(orient=VERTICAL,width=rightWidth - 10, height=height)
        self.mdisplay = Frame(width=rightWidth, height=msgDsplyHeight)
@@ -42,8 +42,11 @@ class MainScreen(Frame):
        self.messageDisplay.registerErrorCallback(self.errorCallback)
        self.popupMessage = StringVar()
        self.popupMessage.set('Please wait, your document is being printed')
-
-       Label(image=self.logo, justify=LEFT).pack(in_=self, side=TOP,anchor=W, fill=X,expand=Y)
+       self.logoframe = Frame()
+       self.logoframe['bg'] = 'white'
+       Label(image=self.logo, bg='white', justify=LEFT).pack(in_=self.logoframe, side=LEFT, anchor=N, ipadx=80)
+       Label(textvar=self.instructions, bg='white', fg='black', justify=LEFT).pack(in_=self.logoframe, side=RIGHT, anchor=N, ipadx=rightWidth/4, ipady=8)
+       self.logoframe.pack(in_=self, side=TOP, fill=X, expand=Y)
        self.local = LocalFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, self.resetAutologout, width=width - rightWidth, height=paneHeight)
        self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler.authorizeJobs, self.errorCallback, self.resetAutologout, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
        self.hpane.add(self.local)
@@ -113,8 +116,9 @@ class MainScreen(Frame):
           e.widget.selection_clear(0, 'end')
        current = self.notebook.select()
        nexttab = ( self.notebook.index(current) + 1 ) % self.notebook.index('end')
+       self.instructions.set(self.info[nexttab])
        self.notebook.select(nexttab)
-       self.jobWidget[nexttab].focus_set()
+       self.jobWidget[nexttab].takefocus()
 
    def takefocus(self):
        if self.local is not None and self.local.joblist is not None:
@@ -122,9 +126,6 @@ class MainScreen(Frame):
 
    def wm_title(self, title):
        self.tk.wm_title(title)
-
-   def setInstructions(self, instructions):
-       self.instrbar.set(instructions)
 
    def getMessageDisplay(self):
        return self.mdisplay
@@ -150,7 +151,7 @@ class MainScreen(Frame):
        self.vpane.destroy()
        self.hpane.destroy()
        self.notebook.destroy()
-       self.instrbar.destroy()
+       self.logoframe.destroy()
        self.logoutCb()
 
 
@@ -179,8 +180,14 @@ class LocalFrame(Frame):
        self.jobMapping = None
        self.nextRefresh = self.after_idle(self.refresh)
 
+   def takefocus(self):
+       if self.joblist is not None:
+          self.joblist.set_focus()
+
 
    def handleAuth(self, event=None):
+       if self.joblist.size == 0 or len(self.joblist.curselection()) == 0:
+          return
        if self.getvar('PRINT_INTERLOCK') == '1':
           return
        self.event_generate('<<Printing>>')
@@ -230,6 +237,8 @@ class UnclaimedFrame(Frame):
 
 
    def handleAuth(self, event=None):
+       if self.joblist.size == 0 or len(self.joblist.curselection()) == 0:
+          return
        if self.getvar('PRINT_INTERLOCK') == '1':
           return
        self.event_generate('<<Printing>>')
