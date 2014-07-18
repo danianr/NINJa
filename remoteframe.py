@@ -41,10 +41,6 @@ class RemoteFrame(Frame):
        self.nextRefresh = self.after_idle(self.refresh)
 
 
-   def takefocus(self):
-       if self.joblist is not None:
-          self.joblist.set_focus()
-
    def handleAuth(self, event=None):
        if self.joblist.size == 0 or len(self.joblist.curselection()) == 0:
           return

@@ -118,11 +118,11 @@ class MainScreen(Frame):
        nexttab = ( self.notebook.index(current) + 1 ) % self.notebook.index('end')
        self.instructions.set(self.info[nexttab])
        self.notebook.select(nexttab)
-       self.jobWidget[nexttab].takefocus()
-
-   def takefocus(self):
-       if self.local is not None and self.local.joblist is not None:
-             self.local.joblist.focus_set()
+       self.jobWidget[nexttab].focus_set()
+       if isinstance(self.jobWidget[nexttab], Listbox) and self.jobWidget[nexttab].size() > 0:
+          self.jobWidget[nexttab].selection_set(0)
+       else:
+          print >> sys.stderr, time.time(), 'ELSE isinstance(%s) and jobWidget[%d].size(%d)\n' % ( isinstance(self.jobWidget[nexttab], Listbox), nexttab, self.jobWidget[nexttab].size() )
 
    def wm_title(self, title):
        self.tk.wm_title(title)
@@ -179,10 +179,6 @@ class LocalFrame(Frame):
        self.event_add('<<LocalJobs>>', '<Key-Left>')
        self.jobMapping = None
        self.nextRefresh = self.after_idle(self.refresh)
-
-   def takefocus(self):
-       if self.joblist is not None:
-          self.joblist.set_focus()
 
 
    def handleAuth(self, event=None):

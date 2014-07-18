@@ -78,7 +78,10 @@ class Controller(object):
          self.mainscreen.wm_title("Columbia University NINJa Printing System    Logged in as uni:"
                                   + self.loggedInUsername)
          self.tk.wm_attributes('-fullscreen', 1)
-         self.mainscreen.takefocus()
+         if self.mainscreen.local is not None and self.mainscreen.local.joblist is not None:
+            self.mainscreen.local.joblist.focus_set()
+            if self.mainscreen.local.joblist.size() > 0:
+               self.mainscreen.local.joblist.selection_set(0)
       else:
          self.loggedInUsername = None
          self.login = AuthDialog(self.authCallback, master=self.tk)
