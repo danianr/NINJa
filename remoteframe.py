@@ -57,9 +57,17 @@ class RemoteFrame(Frame):
               opts['job-originating-user-name'] = self.loggedInUsername
               opts['job-originating-host-name'] = client
               localfilename = '/tmp/' + sha512
-              jobId = self.conn.printFile('remote', localfilename, title, opts)
-              os.unlink(localfilename)
-              remoteJobIds.add(jobId)
+              try:
+                 jobId = self.conn.printFile('remote', localfilename, title, opts)
+                 os.unlink(localfilename)
+                 remoteJobIds.add(jobId)
+              except:
+                 self.errorcb("There was a problem retrieving your remote job")
+                 self.event_generate("<<Finished>>")
+                 self.resetAutologout(45)
+                 self.nextRefresh = self.after_idle(self.refresh)
+                 return
+                 
        self.selectedList = map(lambda j: self.jq[j], remoteJobIds)
        self.auth(self.selectedList, self.errorcb, self.loggedInUsername)
        self.resetAutologout(45)

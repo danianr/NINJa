@@ -2,6 +2,7 @@ from socket import *
 from datetime import *
 from subprocess import Popen, PIPE
 from collections import deque
+import sys
 import os
 import time
 import random
@@ -92,11 +93,13 @@ class CloudAdapter(object):
 
 
    def _sftp_wrapper(self, node, command_script):
+       print >> sys.stderr, time.time(), '_sftp_wrapper(%s, %s, %s)' % (self, node, command_script)
        p = Popen( [self.sftp, node], stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=False, bufsize=1024, cwd=self.landing)
        p.communicate(command_script)
        maxtime = time.time() + 36
        while ( time.time() < maxtime ):
           retstatus = p.poll()
+          print >> sys.stderr, time.time(), "_sftp_wrapper.retstatus = ", retstatus
           if retstatus == 0:
              return True
           elif retstatus is None:
@@ -175,10 +178,14 @@ class CloudAdapter(object):
            nodes = ('localhost',)
 
         for node in nodes:
-           print 'retreiveJob trying node: ', node
+           print >> sys.stderr, 'retreiveJob trying node: ', node
            if self._retrieve(node, username, sha512):
-              print 'job %s/%s successfully retrieved from %s\n' % (username, sha512, node)
-              return '%s/%s' % (self.landing, sha512)
+              print >> sys.stderr, time.time(), 'job %s/%s successfully retrieved from %s\n' % (username, sha512, node)
+              localfile = self.landing + os.sep + sha512
+              if os.path.exists(localfile):
+                 return localfile
+           else:
+              print >> sys.stderr, time.time(), 'unable to retreive job %s/%s from node %s\n' % (username, sha512, node)
         return None
         
 
@@ -205,6 +212,6 @@ class CloudAdapter(object):
 
         for node in nodes:
            if self._store(node, username, sha512, tmpfile):
-              print 'job %s/%s successfully stored to %s\n' % (username, sha512, node)
+              print >> sys.stderr, time.time(), 'job %s/%s successfully stored to %s\n' % (username, sha512, node)
            else:
-              print 'problem storing %s/%s to %s\n' % (username, sha512, node)
+              print >> sys.stderr, time.time(), 'problem storing %s/%s to %s\n' % (username, sha512, node)
