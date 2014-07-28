@@ -75,8 +75,6 @@ class Controller(object):
                                       messageDisplay=self.messageDisplay,
                                       logoutCb=self.logoutCallback,
                                       master=self.tk, width=self.tk['width'], height=self.tk['height'])
-         self.mainscreen.wm_title("Columbia University NINJa Printing System    Logged in as uni:"
-                                  + self.loggedInUsername)
          self.tk.wm_attributes('-fullscreen', 1)
          if self.mainscreen.local is not None and self.mainscreen.local.joblist is not None:
             self.mainscreen.local.joblist.focus_set()
@@ -99,7 +97,6 @@ class Controller(object):
        self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
        self.login = AuthDialog(self.authCallback, master=self.tk)
        self.login.takefocus()
-       self.tk.wm_title('Columbia University NINJa Printing System')
        self.tk.wm_withdraw()
 
    def refreshQueue(self):
