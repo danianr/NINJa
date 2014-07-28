@@ -145,12 +145,15 @@ class MainScreen(Frame):
        if self.getvar('PRINT_INTERLOCK') == '1':
           self.resetAutologout(45)
           return
+       self.event_generate('<<Finished>>')
        self.unbind_all('<<SwitchView>>')
        self.unbind_all('<<Logout>>')
        self.unclaimed.destroy()
        self.vpane.destroy()
        self.hpane.destroy()
        self.notebook.destroy()
+       self.remote.destroy()
+       self.local.destroy()
        self.logoframe.destroy()
        self.logoutCb()
 

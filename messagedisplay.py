@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+import sys
 import time
 import base64
 from collections import deque
@@ -90,6 +91,10 @@ class MessageDisplay(object):
 
    def update(self, event=None):
        now = time.time()
+       if event is not None:
+          print >> sys.stderr, now, "MessageDisplay.update() event:", repr(event.__dict__)
+ 
+       print >> sys.stderr, now, "MessageDisplay.update() bulletins:", repr(self.bulletins)
        if self.bulletins.has_key('quota'):
           qb = self.bulletins['quota']
           if  qb.ends > now:
@@ -108,6 +113,10 @@ class MessageDisplay(object):
              else:
                 self.message.set(b.message)
                 processQueue = False
+       else:
+          processQueue = False
+          self.message.set(self.defaultMessage)
+          
        
        self.queue.extend(filter( lambda x: (x.begins < now and x.ends > now), self.bulletins.values()))
        

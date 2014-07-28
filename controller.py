@@ -83,7 +83,7 @@ class Controller(object):
       else:
          self.loggedInUsername = None
          self.login = AuthDialog(self.authCallback, master=self.tk)
-         self.login.wm_title('Columbia University NINJa Printing System')
+         #self.login.wm_title('Columbia University NINJa Printing System')
 
 
    def logoutCallback(self):
