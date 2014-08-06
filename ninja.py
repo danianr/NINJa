@@ -27,8 +27,7 @@ def name_tuple():
    # a gethostbyname and proceed to use the canonical hostname for the appsocket:
    # interface of the private destination.
 
-   ninjaname = (os.uname())[1]
-   ninjaname = (socket.gethostbyname_ex(ninjaname))[0]
+   ninjaname = socket.getfqdn()
    print >> sys.stderr, time.time(), "ninja:", ninjaname 
    printername = ninjaname.replace('ninja', 'printer')
    print >> sys.stderr, time.time(), "printername:", printername
@@ -94,7 +93,8 @@ if __name__ == '__main__':
        exit(2)
 
    if (privatename, None) not in cupsDestinations:
-       modelsRE = [ re.compile('(?i).*"(HP) (LaserJet P4515)"'), re.compile('(?i).*"(hp) (LaserJet 9050)"') ]
+       modelsRE = [ re.compile('(?i).*"(HP) (LaserJet P4515)"'), re.compile('(?i).*"(hp) (LaserJet 9050)"'),
+                    re.compile('(?i).*"(HP) (LaserJet M806)"') ]
        pjlcmd = '\033%-12345X@PJL\n@PJL INFO ID\n'
        pjl = telnetlib.Telnet(printername, 9100, 7)
        pjl.write(pjlcmd)
@@ -104,14 +104,17 @@ if __name__ == '__main__':
        if model.group(2) == 'LaserJet P4515': 
          conn.addPrinter(privatename, ppdname='drv:///hpcups.drv/hp-laserjet_p4515x.ppd',
                                       device='socket://%s' % (printername,) )
-         print 'Added a LaserJet P4515x for %s\n' % (privatename,)
+         print 'Added a LaserJet P4515x for ', privatename
        elif model.group(2) == 'LaserJet 9050':
          conn.addPrinter(privatename, ppdname='drv:///hpcups.drv/hp-laserjet_9050-pcl3.ppd',
                                       device='socket://%s' % (printername,) )
-         print 'Added a LaserJet 9050 for %s\n' % (privatename,)
+         print 'Added a LaserJet 9050 for ', privatename
+       elif model.group(2) == 'HP LaserJet M806':
+         conn.addPrinter(privatename, filename='hp-laserjet_m806-ps.ppd', device='socket://%s' % (printername,) )
+         print 'Added a LaserJet M806 for ', privatename
        else:
          conn.addPrinter(privatename, device='socket://%s' % (printername,) )
-         print 'Added a generic JetDirect socket printer for %s\n' % (privatename,)
+         print 'Added a generic JetDirect socket printer for ', privatename
 
    
    gridlist = read_gridlist()
