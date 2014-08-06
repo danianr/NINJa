@@ -109,7 +109,7 @@ if __name__ == '__main__':
          conn.addPrinter(privatename, ppdname='drv:///hpcups.drv/hp-laserjet_9050-pcl3.ppd',
                                       device='socket://%s' % (printername,) )
          print 'Added a LaserJet 9050 for ', privatename
-       elif model.group(2) == 'HP LaserJet M806':
+       elif model.group(2) == 'LaserJet M806':
          conn.addPrinter(privatename, filename='hp-laserjet_m806-ps.ppd', device='socket://%s' % (printername,) )
          print 'Added a LaserJet M806 for ', privatename
        else:
