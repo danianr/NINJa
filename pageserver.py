@@ -107,11 +107,27 @@ class PageServerAuth(object):
              else:
                 mf.after_cancel(timeout)
                 conn.cancelSubscription(sub)
-                attr = self.conn.getJobAttributes(job.jobId)
                 self.currentJob = None
                 self.messageDisplay.releaseInterlock()
                 self.messageDisplay.messageFrame.event_generate('<<Finished>>')
-                self.pageAccounting(self.hostname, job.username, requestId, attr['job-media-sheets-completed'])
+
+                # Check for media-sheets first from the job, then from the event, and finally
+                # just assume that our query count was correct (some drivers do not properly provide
+                # page count information
+                if completed[-1]['job-state-reasons'] == 'job-completed-successfully':
+                   attr = self.conn.getJobAttributes(job.jobId)
+                   if attr['job-media-sheets-completed'] != 0:
+                      sheetsCompleted = attr['job-media-sheets-completed']
+                   elif completed[-1]['job-impressions-completed'] != 0:
+                      sheetsCompleted = completed[-1]['job-impressions-completed']
+                      if attr.has_key('Duplex') and attr['Duplex'] == u'DuplexNoTumble':
+                         sheetsCompleted = ( sheetsCompleted  + (sheetsCompleted % 2) ) / 2
+                   else:
+                      sheetsCompleted = job.pages
+                else:
+                   sheetsCompleted = 0
+                   
+                self.pageAccounting(self.hostname, job.username, requestId, sheetsCompleted)
           except cups.IPPError:
                 print "caught an IPPError"
 
