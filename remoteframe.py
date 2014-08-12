@@ -23,8 +23,8 @@ class RemoteFrame(Frame):
        self.remoteIndex      = IndexView(username, cloudAdapter.getIndex, cloudAdapter.indexStr)
        self.viewTimestamp    = 1
 
-       self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
-                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), padx='4', anchor='sw', font='TkFixedFont' )
+       self.jobHeader = Label(self, text='%-32s  %-12s  %6s  %15s' % \
+                             ( 'Title', 'Location', 'Sheets', 'Expires'), padx='4', anchor='sw', font='TkFixedFont' )
 
        self.jobHeader.place(in_=self, x=0, y=30, width=self['width'], height=30, anchor='sw')
 

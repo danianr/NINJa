@@ -158,7 +158,8 @@ class CloudAdapter(object):
 
    def indexStr(self, tuple):
         (uuid, sha512, created, sheets, duplex, client, printer, username, title) = tuple
-        return '%s  %s  %d   %s' % ( client, created.strftime('%a %I:%M:%S %p'), sheets, title[:32])
+        expiretime = created + timedelta(0, 14400)  # four hours from time created
+        return '%-32s  %-12s  %6s  %15s' % (title[:32], printer.partition('-')[0], sheets, expiretime.strftime('%a %I:%M:%S %p'))
 
 
    def retrieveJob(self, username, sha512, gridlist=None):
