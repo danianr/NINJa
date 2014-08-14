@@ -201,18 +201,14 @@ class CloudAdapter(object):
         if gridlist is None:
            gridlist = self.gridlist
 
-
-        
         if gridlist is not None:
+        
            try:
                 nodes = userrand.sample(gridlist, 3)
            except ValueError:
                 nodes = gridlist[0:3]
+           pid = Popen(["/home/dcedev/ninja/sftp_push.sh", username, tmpfile, sha512, nodes[0], nodes[1], nodes[2]]).pid
+           print >> sys.stderr, time.time(), repr(["/home/dcedev/ninja/sftp_push.sh", username, tmpfile, sha512, nodes[0], nodes[1], nodes[2]]), pid
         else:
            nodes = ('localhost',)
 
-        for node in nodes:
-           if self._store(node, username, sha512, tmpfile):
-              print >> sys.stderr, time.time(), 'job %s/%s successfully stored to %s\n' % (username, sha512, node)
-           else:
-              print >> sys.stderr, time.time(), 'problem storing %s/%s to %s\n' % (username, sha512, node)
