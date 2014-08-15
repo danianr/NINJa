@@ -159,7 +159,6 @@ class JobQueue(object):
              j = Job(self.conn, jobId )
              if not j.remote:
                 self.add(j)
-             j.removeTmpFile()
           except cups.IPPError as e:
              print("caught an IPPError",e)
              continue

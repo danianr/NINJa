@@ -6,7 +6,7 @@ import sys
 import os
 import time
 import random
-
+import copy
 
 class IndexView(object):
 
@@ -74,6 +74,33 @@ class CloudAdapter(object):
           raise e
 
 
+
+   def _topoCalc(self, gridlist):
+       print >> sys.stderr, time.time(), "Entrance into CloudAdapter._topoCalc(", repr(gridlist), ")" 
+       remaining = copy.copy(gridlist)
+       topolist = []
+       thishost = getfqdn()
+       if thishost in remaining:
+          remaining.remove(thishost)
+          topolist.append(thishost)
+       
+       for timeoutval in [ 0.000260, 0.000650, 0.002000 ]:
+          for node in remaining:
+             s = socket()
+             s.settimeout(timeoutval)
+             iaddr = ( gethostbyname(node), 22 )
+             try: 
+                s.connect(iaddr)
+                s.close()
+                topolist.append(node)
+                remaining.remove(node)
+             except timeout:
+                print >> sys.stderr, time.time(), 'Unable to connect to node %s within %fs\n' % (node, timeoutval)
+       topolist.extend(remaining)
+       print >> sys.stderr, time.time(), "Return from CloudAdapter._topoCalc => ", repr(topolist)
+       return topolist
+
+                
    def _getfile(self, cmd):
        s = socket(AF_UNIX, SOCK_STREAM, 0)
        s.connect(self.controlpath)
@@ -111,7 +138,9 @@ class CloudAdapter(object):
 
 
    def registerGridList(self, gridlist):
+       self.topolist = self._topoCalc(gridlist)
        self.gridlist = gridlist 
+
 
    def getHeaders(self, username):
        cmd = 'return %s' % (username,)
@@ -119,6 +148,7 @@ class CloudAdapter(object):
        rawheaders = sock.readlines()
        sock.close()
        return rawheaders
+
 
    def getIndex(self, username):
        index = []
@@ -173,6 +203,7 @@ class CloudAdapter(object):
         if gridlist is not None:
            try:
                 nodes = userrand.sample(gridlist, 3)
+                nodes = filter(lambda h: h in nodes, self.topolist)
            except ValueError:
                 nodes = gridlist[0:3]
         else:
@@ -185,8 +216,12 @@ class CloudAdapter(object):
               localfile = self.landing + os.sep + sha512
               if os.path.exists(localfile):
                  return localfile
+              else:
+                 print >> sys.stderr, time.time(), "unable to locate ", localfile
            else:
               print >> sys.stderr, time.time(), 'unable to retreive job %s/%s from node %s\n' % (username, sha512, node)
+              self.topolist.remove(node)
+              self.topolist.append(node)
         return None
         
 
