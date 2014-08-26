@@ -27,30 +27,41 @@ def name_tuple():
 
 def configure_private(conn, privatename, printername):
 
-    modelsRE = [ re.compile('(?i).*"(HP) (LaserJet P4515)"'), re.compile('(?i).*"(hp) (LaserJet 9050)"'),
-                    re.compile('(?i).*"(HP) (LaserJet M806)"') ]
+    # Regular expressions for identifying printer, printer-make-and-model
+    # should be captured in the second group, with manufacturer in the first
+    # group if possible
+
+    modelsRE = [ re.compile('(?i).*"(hp) (LaserJet 9050)"'),
+                 re.compile('(?i).*"(HP) (LaserJet P4515)"'),
+                 re.compile('(?i).*"(HP) (LaserJet M806)"') ]
+
+    ppdNameMap = [ 'drv:///hpcups.drv/hp-laserjet_9050-pcl3.ppd',
+                   'drv:///hpcups.drv/hp-laserjet_p4515x.ppd',
+                   'hp-laserjet_m806-ps.ppd' ]
+                   
+
+    # Use the telnetlib module to submit a PJL INFO command directly
+    # to the appsocket interface of the printer and select the appropriate
+    # PPD based on which regular expression matches
+
     pjlcmd = '\033%-12345X@PJL\n@PJL INFO ID\n'
     pjl = telnetlib.Telnet(printername, 9100, 7)
     pjl.write(pjlcmd)
     time.sleep(10)
     (n, model, string)  = pjl.expect(modelsRE)
     pjl.close()
-    if model.group(2) == 'LaserJet P4515': 
-         conn.addPrinter(privatename, ppdname='drv:///hpcups.drv/hp-laserjet_p4515x.ppd',
-                                      device='socket://%s' % (printername,) )
-         print 'Added a LaserJet P4515x for ', privatename
-    elif model.group(2) == 'LaserJet 9050':
-         conn.addPrinter(privatename, ppdname='drv:///hpcups.drv/hp-laserjet_9050-pcl3.ppd',
-                                      device='socket://%s' % (printername,) )
-         print 'Added a LaserJet 9050 for ', privatename
-    elif model.group(2) == 'LaserJet M806':
-         conn.addPrinter(privatename, filename='hp-laserjet_m806-ps.ppd', device='socket://%s' % (printername,) )
-         print 'Added a LaserJet M806 for ', privatename
+
+    if ppdNameMap[n].startswith('drv://'):
+        localPPD = cups.PPD(conn.getServerPPD(ppdNameMap[n]))
     else:
-         conn.addPrinter(privatename, device='socket://%s' % (printername,) )
-         print 'Added a generic JetDirect socket printer for ', privatename
+        localPPD = cups.PPD(ppdNameMap[n])
+     
+    localPPD.markOption('OptionDuplex', 'True')
+    localPPD.markOption('Duplex', 'DuplexNoTumble')
 
     try:
-      return conn.getDests()[(privatename, None)]
-    except:
-      return None
+       conn.addPrinter(privatename, ppd=localPPD, device='socket://%s' % (printername,))
+       return conn.getDests()[(privatename, None)]
+    except cups.IPPError:
+       print >> sys.stderr, time.time(), "Could not add private queue:", privatename, " for ", printername
+       return None
