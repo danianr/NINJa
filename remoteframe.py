@@ -56,7 +56,7 @@ class RemoteFrame(Frame):
               opts = dict()
               opts['job-originating-user-name'] = self.loggedInUsername
               opts['job-originating-host-name'] = client
-              localfilename = '/tmp/' + sha512
+              localfilename = self.cloudAdapter.landing + os.sep + sha512
               try:
                  jobId = self.conn.printFile('remote', localfilename, title, opts)
                  os.unlink(localfilename)
