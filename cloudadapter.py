@@ -64,7 +64,7 @@ class CloudAdapter(object):
    def __init__(self, path):
        self.controlpath = path
        self.sftp = '/usr/bin/sftp'
-       self.landing = '/tmp'
+       self.landing = '/svc/landing'
        self.remote_path = '/svc/remote'
        if not os.path.exists(self.controlpath):
           e = OSError()
