@@ -65,7 +65,7 @@ class Job(object):
                      % ( self.jobId, self.uuid, self.creation, self.username, self.hostname, self.title, self.pages, self.jobState, self.duplex )
 
    def __str__(self):
-       return '%4d  %-12s %-18s %-48s  %6s' % ( self.jobId,  self.username, self.hostname, self.displayTitle, self.pages )
+       return '%4d  %-12s %-18s %-48s  %6s' % ( self.jobId,  self.username, self.hostname[:18], self.displayTitle[:48], self.pages )
 
    def removeTmpFile(self):
        if self.tmpfile is not None and self.tmpfile != "":

@@ -31,7 +31,7 @@ class MainScreen(Frame):
              % (height, width, paneHeight, msgDsplyHeight, rightWidth)
 
        self.instructions = StringVar()
-       self.info = ('[Left] selects Left Frame\t[Right] selects Right Frame\n[Esc] Logout\n[Tab] Classic View       \t[Enter] Prints Selected Job',
+       self.info = ('[Left] selects Local Jobs\t[Right] selects Cloud Jobs\n[Esc] Logout\n[Tab] Unclaimed Jobs     \t[Enter] Prints Selected Job',
               '[Tab] Return to Main Screen\n[Esc] Logout\n[Enter] Prints Selected Job without further prompting')
        self.instructions.set(self.info[0])
        self.messageDisplay = messageDisplay
@@ -169,7 +169,7 @@ class LocalFrame(Frame):
 
        self.resetAutologout = resetAutologout
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
-                             ( 'Id', 'User', 'Client', 'Title', 'Sheets'), font='TkFixedFont',
+                             ( 'Id', 'User', 'Printed From', 'Title', 'Sheets'), font='TkFixedFont',
                              padx='4', anchor='sw' )
        self.jobHeader.place(in_=self,x=0, y=30, anchor='sw', width=self['width'], height=30)
        self.joblist = Listbox(master=self, font='TkFixedFont',background='white',
