@@ -39,7 +39,14 @@ class Job(object):
        self.displayTitle = self.title[:47]
        self.jobState = attr['job-state']
        self.remote   = printerUri.endswith('/remote')
-       self.tmpfile  = doc['file']
+
+       # There is no need to keep the tmpfile around for remote jobs
+       if self.remote and doc['file'] != "":
+          os.remove(doc['file'])
+          self.tmpfile = None
+       else:
+          self.tmpfile  = doc['file']
+       
 
        if ( attr.has_key('Duplex')  and attr['Duplex'] == u'DuplexNoTumble' ):
            self.duplex = True
