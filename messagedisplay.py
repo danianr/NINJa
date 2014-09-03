@@ -91,10 +91,7 @@ class MessageDisplay(object):
 
    def update(self, event=None):
        now = time.time()
-       if event is not None:
-          print >> sys.stderr, now, "MessageDisplay.update() event:", repr(event.__dict__)
  
-       print >> sys.stderr, now, "MessageDisplay.update() bulletins:", repr(self.bulletins)
        if self.bulletins.has_key('quota'):
           qb = self.bulletins['quota']
           if  qb.ends > now:
