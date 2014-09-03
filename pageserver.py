@@ -2,6 +2,7 @@ import Tkinter
 import cups
 import re
 import httplib
+import sys
 from time import time
 import xml.etree.ElementTree as ET
 
@@ -91,8 +92,9 @@ class PageServerAuth(object):
                print 'caught an IPPError() while trying to print [%s]\n' % ( job.jobId, )
            finally:
                self.currentJob = None
-               self.messageDisplay.messageFrame.event_generate('<<Finished>>')
-               self.messageDisplay.releaseInterlock()
+               if self.messageDisplay.messageFrame is not None:
+                  self.messageDisplay.messageFrame.event_generate('<<Finished>>')
+                  self.messageDisplay.releaseInterlock()
 
 
        # define a private function to check the notifications
@@ -108,24 +110,33 @@ class PageServerAuth(object):
                 mf.after_cancel(timeout)
                 conn.cancelSubscription(sub)
                 self.currentJob = None
-                self.messageDisplay.releaseInterlock()
-                self.messageDisplay.messageFrame.event_generate('<<Finished>>')
+                if self.messageDisplay.messageFrame is not None:
+                   self.messageDisplay.releaseInterlock()
+                   self.messageDisplay.messageFrame.event_generate('<<Finished>>')
 
                 # Check for media-sheets first from the job, then from the event, and finally
                 # just assume that our query count was correct (some drivers do not properly provide
                 # page count information
                 if completed[-1]['job-state-reasons'] == 'job-completed-successfully':
                    attr = self.conn.getJobAttributes(job.jobId)
+                   print >> sys.stderr, time(), "attr['job-media-sheets-completed']",attr['job-media-sheets-completed']
+                   print >> sys.stderr, time(), "completed[-1]['job-impressions-completed']", completed[-1]['job-impressions-completed']
+
                    if attr['job-media-sheets-completed'] != 0:
                       sheetsCompleted = attr['job-media-sheets-completed']
+                      print >> sys.stderr, time(), 'using job-media-sheets-completed: ', sheetsCompleted
                    elif completed[-1]['job-impressions-completed'] != 0:
                       sheetsCompleted = completed[-1]['job-impressions-completed']
                       if attr.has_key('Duplex') and attr['Duplex'] == u'DuplexNoTumble':
                          sheetsCompleted = ( sheetsCompleted  + (sheetsCompleted % 2) ) / 2
+                      print >> sys.stderr, time(), 'using job-impressions-completed: ', sheetsCompleted
                    else:
                       sheetsCompleted = job.pages
+                      print >> sys.stderr, time(), 'falling back to job.pages:', sheetsCompleted
                 else:
                    sheetsCompleted = 0
+                   print >> sys.stderr, time(), 'using sheetsCompleted = 0'
+                   
                    
                 self.pageAccounting(self.hostname, job.username, requestId, sheetsCompleted)
           except cups.IPPError:
