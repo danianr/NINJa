@@ -20,7 +20,7 @@ class Job(object):
        # Note that the getDocument command must be issued prior to requesting
        # detailed job attributes such as document-format, job-originating-host-name
        # and job-originating-user-name, otherwise these attributes will be blank
-       digest_cmd = '/usr/bin/openssl dgst -sha512 %s' % ( doc['file'] )
+       digest_cmd = '/usr/bin/nice /usr/bin/openssl dgst -sha512 %s' % ( doc['file'] )
        pagecount_cmd = './pagecount.sh %s %s' % ( doc['document-format'], doc['file'] )
        sha512 = os.popen(digest_cmd).read()
        pagecount = os.popen(pagecount_cmd).read()
