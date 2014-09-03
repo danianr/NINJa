@@ -160,13 +160,9 @@ class CloudAdapter(object):
            pageinfo = int(pageinfo)
            if (pageinfo % 2 == 0):
               duplex = False
-              sheets = pageinfo >> 1
-           elif ((pageinfo >> 1) % 2 == 0):
-              duplex = True
-              sheets = pageinfo >> 2
            else:
               duplex = True
-              sheets = (pageinfo + 1 ) >> 2
+           sheets = pageinfo >> 1
            if printer is not None and printer != '0.0.0.0':
               try:
                   (printer, aliases, ip_list) = gethostbyaddr(printer)
