@@ -10,6 +10,7 @@ from subprocess import Popen
 import cups
 import re
 import random
+import sys
 import time
 import httplib
 import xml.etree.ElementTree as ET
@@ -58,8 +59,35 @@ class Controller(object):
                                multicastHandler=self.mcast,
                                cloudAdapter=self.cloudAdapter)
 
+      self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
+      self.tk.bind_all('<Key-BackSpace>', self.hardReset)
       self.nextRefresh = self.tk.after_idle(self.refreshQueue)
 
+
+   def hardReset(self, event):
+      if event.state == 12 or event.state == 20:
+         print >> sys.stderr, time.time(), 'Performing Controller.hardReset()'
+         self.tk.after_cancel(self.nextRefresh)
+         if self.mainscreen is not None:
+            self.mainscreen.event_generate('<<Finished>>')
+            self.mainscreen.after_cancel(self.mainscreen.autologout)
+            if self.mainscreen.local is not None:
+               self.mainscreen.local.after_cancel(self.mainscreen.local.nextRefresh)
+            if self.mainscreen.remote is not None:
+               self.mainscreen.remote.after_cancel(self.mainscreen.remote.nextRefresh)
+            self.mainscreen.destroy()
+            self.mainscreen = None
+         
+         self.messageDisplay.releaseInterlock()
+         self.messageDisplay.registerMessageFrame(None)
+         self.messageDisplay.clearQuota()
+         self.tk.wm_attributes('-fullscreen', 0)
+         self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
+         self.login = AuthDialog(self.authCallback, master=self.tk)
+         self.login.takefocus()
+         self.tk.wm_withdraw()
+         self.jobqueue.fullRefresh()
+         self.nextRefresh = self.tk.after_idle(self.refreshQueue)
 
 
    def authCallback(self, username, result):
