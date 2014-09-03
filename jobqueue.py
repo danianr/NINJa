@@ -5,10 +5,12 @@ import cups
 import re
 from collections import deque
 import time
+import sys
 
 
 class Job(object):
    def __init__(self, conn=None, jobId=None):
+       print >> sys.stderr, time.time(), 'Entry into Job(jobId=%s)' % (jobId,)
        self.jobId = jobId
        self.authenticated = False
        printerUri = conn.getJobAttributes(jobId).get('printer-uri')
@@ -16,14 +18,19 @@ class Job(object):
        # This will raise an IPPError if the job has not finished transferring
        # in the form of IPPError: (1030, 'client-error-not-found')
        doc = conn.getDocument(printerUri, jobId, 1)
+       print >> sys.stderr, time.time(), 'After getDocument() for jobId:', jobId
+       
 
        # Note that the getDocument command must be issued prior to requesting
        # detailed job attributes such as document-format, job-originating-host-name
        # and job-originating-user-name, otherwise these attributes will be blank
        digest_cmd = '/usr/bin/nice /usr/bin/openssl dgst -sha512 %s' % ( doc['file'] )
+       print >> sys.stderr, time.time(), 'After the digest for jobId:', jobId
        pagecount_cmd = './pagecount.sh %s %s' % ( doc['document-format'], doc['file'] )
        sha512 = os.popen(digest_cmd).read()
+       print >> sys.stderr, time.time(), 'After the digest for jobId:', jobId
        pagecount = os.popen(pagecount_cmd).read()
+       print >> sys.stderr, time.time(), 'After the pagecount for jobId:', jobId
        try:
            self.pages = int(pagecount)
        except ValueError:
@@ -170,6 +177,8 @@ class JobQueue(object):
              print("caught an IPPError",e)
              continue
        self.refreshReq.clear()
+       rettime = time.time()
+       print >> sys.stderr, rettime, 'Total elapsed time for jobqueue.refresh():', rettime - now
 
    def add(self, job):
        # updates the main index
