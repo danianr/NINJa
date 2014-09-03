@@ -143,7 +143,7 @@ class MainScreen(Frame):
           self.after_cancel(self.autologout)
           self.autologout = None
        if self.getvar('PRINT_INTERLOCK') == '1':
-          self.resetAutologout(45)
+          self.resetAutologout(18)
           return
        self.event_generate('<<Finished>>')
        self.unbind_all('<<SwitchView>>')
@@ -193,7 +193,7 @@ class LocalFrame(Frame):
        self.after_cancel(self.nextRefresh)
        selectedList = self.jobMapping.map(self.joblist.curselection())
        self.auth(selectedList, self.errorcb, self.loggedInUsername)
-       self.resetAutologout(45)
+       self.resetAutologout(18)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
@@ -245,7 +245,7 @@ class UnclaimedFrame(Frame):
        selectedList = self.jobMapping.map(self.joblist.curselection())
        self.auth(selectedList, self.errorcb, self.loggedInUsername)
        self.event_generate('<<SwitchView>>')
-       self.resetAutologout(45)
+       self.resetAutologout(18)
        self.nextRefresh = self.after_idle(self.refresh)
 
 

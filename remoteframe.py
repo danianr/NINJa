@@ -64,13 +64,13 @@ class RemoteFrame(Frame):
               except:
                  self.errorcb("There was a problem retrieving your remote job")
                  self.event_generate("<<Finished>>")
-                 self.resetAutologout(45)
+                 self.resetAutologout(18)
                  self.nextRefresh = self.after_idle(self.refresh)
                  return
                  
        self.selectedList = map(lambda j: self.jq[j], remoteJobIds)
        self.auth(self.selectedList, self.errorcb, self.loggedInUsername)
-       self.resetAutologout(45)
+       self.resetAutologout(18)
        self.nextRefresh = self.after_idle(self.refresh)
 
 
