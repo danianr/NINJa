@@ -25,7 +25,6 @@ class Job(object):
        # detailed job attributes such as document-format, job-originating-host-name
        # and job-originating-user-name, otherwise these attributes will be blank
        digest_cmd = '/usr/bin/nice /usr/bin/openssl dgst -sha512 %s' % ( doc['file'] )
-       print >> sys.stderr, time.time(), 'After the digest for jobId:', jobId
        pagecount_cmd = './pagecount.sh %s %s' % ( doc['document-format'], doc['file'] )
        sha512 = os.popen(digest_cmd).read()
        print >> sys.stderr, time.time(), 'After the digest for jobId:', jobId
