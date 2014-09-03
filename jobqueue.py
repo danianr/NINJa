@@ -136,7 +136,7 @@ class JobQueue(object):
        self.refreshReq = deque()
        self.claimedMapFrame   = None
        self.unclaimedMapFrame = None
-       self.delay      = 15	# seconds
+       self.delay      = 75	# seconds
 
 
    def getMapping(self, username=None):
