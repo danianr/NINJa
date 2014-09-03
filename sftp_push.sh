@@ -34,5 +34,6 @@ if [ ! -f ${log} ]; then
    touch $log
 fi
 
+/usr/bin/renice 12 $$
 ( fork_sftp $* ) &
 exit 0
