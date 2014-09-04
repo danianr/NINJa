@@ -3,7 +3,7 @@ import cups
 import re
 import httplib
 import sys
-from time import time
+import time
 import xml.etree.ElementTree as ET
 
 
@@ -119,23 +119,23 @@ class PageServerAuth(object):
                 # page count information
                 if completed[-1]['job-state-reasons'] == 'job-completed-successfully':
                    attr = self.conn.getJobAttributes(job.jobId)
-                   print >> sys.stderr, time(), "attr['job-media-sheets-completed']",attr['job-media-sheets-completed']
-                   print >> sys.stderr, time(), "completed[-1]['job-impressions-completed']", completed[-1]['job-impressions-completed']
+                   print >> sys.stderr, time.time(), "attr['job-media-sheets-completed']",attr['job-media-sheets-completed']
+                   print >> sys.stderr, time.time(), "completed[-1]['job-impressions-completed']", completed[-1]['job-impressions-completed']
 
                    if attr['job-media-sheets-completed'] != 0:
                       sheetsCompleted = attr['job-media-sheets-completed']
-                      print >> sys.stderr, time(), 'using job-media-sheets-completed: ', sheetsCompleted
+                      print >> sys.stderr, time.time(), 'using job-media-sheets-completed: ', sheetsCompleted
                    elif completed[-1]['job-impressions-completed'] != 0:
                       sheetsCompleted = completed[-1]['job-impressions-completed']
                       if attr.has_key('Duplex') and attr['Duplex'] == u'DuplexNoTumble':
                          sheetsCompleted = ( sheetsCompleted  + (sheetsCompleted % 2) ) / 2
-                      print >> sys.stderr, time(), 'using job-impressions-completed: ', sheetsCompleted
+                      print >> sys.stderr, time.time(), 'using job-impressions-completed: ', sheetsCompleted
                    else:
                       sheetsCompleted = job.pages
-                      print >> sys.stderr, time(), 'falling back to job.pages:', sheetsCompleted
+                      print >> sys.stderr, time.time(), 'falling back to job.pages:', sheetsCompleted
                 else:
                    sheetsCompleted = 0
-                   print >> sys.stderr, time(), 'using sheetsCompleted = 0'
+                   print >> sys.stderr, time.time(), 'using sheetsCompleted = 0'
                    
                    
                 self.pageAccounting(self.hostname, job.username, requestId, sheetsCompleted)
