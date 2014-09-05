@@ -154,12 +154,22 @@ class MessageDisplay(object):
           amount    = 0
           paidavail = 0
 
-       weekly     = aggregated.find(tag + '/weekly').attrib['remaining']
-       semesterly = aggregated.find(tag + '/semesterly').attrib['remaining']
+       weekly     = aggregated.find(tag + '/weekly')
+       if weekly is not None:
+          weekly = weekly.attrib['remaining']
+       semesterly = aggregated.find(tag + '/semesterly')
+       if semesterly is not None:
+          semesterly = semesterly.attrib['remaining']
 
        ts='Quota Information for %s Printers\n' % (self.population,)
-       qs = 'Weekly Quota Remaining:   %4d sheets\nSemester Quota Remaining: %4d sheets\n' \
-           % ( int(weekly), int(semesterly) ) 
+       if weekly is not None:
+          qs = 'Weekly Quota Remaining:   %4d sheets\n' % ( int(weekly), )
+       else:
+          qs = 'No Weekly Quota Assigned\n'
+       if semesterly is not None:
+          qs += 'Semester Quota Remaining: %4d sheets\n' % ( int(semesterly), ) 
+       else:
+          qs += 'No Semester Quota Assigned\n'
        ds = 'Paid Sheets Available:    %d\n\nPrinting Dollar Balance: %s\n' \
               % ( int(paidavail), amount)
        self.bulletins['quota'] = Bulletin('quota', ts + qs + ds, 1, int(time.time()) + 300, 1)
