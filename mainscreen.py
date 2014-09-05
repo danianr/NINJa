@@ -11,7 +11,7 @@ import cups
 
 class MainScreen(Frame):
    def __init__(self, username, jobqueue, cloudAdapter, conn,
-                  authHandler,  messageDisplay, logoutCb, master=None, **cnf):
+                  authHandler,  messageDisplay, logoutCb, maxsize=214783647, master=None, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.pack(expand=YES, fill=BOTH)
        self.tk  = master
@@ -47,7 +47,7 @@ class MainScreen(Frame):
        Label(image=self.logo, bg='white', justify=LEFT).pack(in_=self.logoframe, side=LEFT, anchor=N, ipadx=80)
        Label(textvar=self.instructions, bg='white', fg='black', justify=LEFT).pack(in_=self.logoframe, side=RIGHT, anchor=N, ipadx=rightWidth/4, ipady=8)
        self.logoframe.pack(in_=self, side=TOP, fill=X, expand=Y)
-       self.local = LocalFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, self.resetAutologout, width=width - rightWidth, height=paneHeight)
+       self.local = LocalFrame(username, jobqueue, conn, authHandler.authorizeJobs, self.errorCallback, self.resetAutologout, maxsize=maxsize,width=width - rightWidth, height=paneHeight)
        self.remote = RemoteFrame(username, jobqueue, cloudAdapter, conn, authHandler.authorizeJobs, self.errorCallback, self.resetAutologout, width=rightWidth - 10 , height=paneHeight - msgDsplyHeight - 10)
        self.hpane.add(self.local)
        self.vpane.add(self.remote)
@@ -91,6 +91,7 @@ class MainScreen(Frame):
        self.bind_all('<<CancelJob>>',  authHandler.cancelCurrentJob )
 
        self.jobWidget =  ( self.local.joblist, self.unclaimed.joblist )
+       self.update_idletasks()
 
 
 
@@ -159,13 +160,14 @@ class MainScreen(Frame):
 
 
 class LocalFrame(Frame):
-   def __init__(self, username, jobqueue, conn, authHandler, errorcb, resetAutologout, master=None, **cnf):
+   def __init__(self, username, jobqueue, conn, authHandler, errorcb, resetAutologout, master=None, maxsize=2147483647, **cnf):
        apply(Frame.__init__, (self, master), cnf)
        self.loggedInUsername = username
        self.jq      = jobqueue
        self.conn    = conn
        self.auth    = authHandler
        self.errorcb = errorcb
+       self.maxsize = maxsize
 
        self.resetAutologout = resetAutologout
        self.jobHeader = Label(self, text='%4s  %-12s %-18s %-48s   %6s' % \
@@ -192,6 +194,21 @@ class LocalFrame(Frame):
        self.event_generate('<<Printing>>')
        self.after_cancel(self.nextRefresh)
        selectedList = self.jobMapping.map(self.joblist.curselection())
+       toobig = filter(lambda j: (j.size > self.maxsize), selectedList)
+       if len(toobig) > 0:
+          for job in toobig:
+             print >> sys.stderr, time.time(), 'Canceling job:%d due to size %d\n' % (job.jobId, job.size)
+             self.conn.cancelJob(job.jobId)
+
+          self.jobMapping.setDirty()
+          self.refresh()
+          for job in toobig:
+             if job.error is None:
+                self.errorcb('Unable to print job, too large')
+             else:
+                self.errorcb(job.error)
+          # errorcb is terminal, but just to make this explicit
+          return
        self.auth(selectedList, self.errorcb, self.loggedInUsername)
        self.resetAutologout(45)
        self.nextRefresh = self.after_idle(self.refresh)

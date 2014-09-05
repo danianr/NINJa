@@ -13,6 +13,7 @@ import random
 import sys
 import time
 import httplib
+import ttk
 import xml.etree.ElementTree as ET
 
 
@@ -20,7 +21,7 @@ import xml.etree.ElementTree as ET
 
 
 class Controller(object):
-   def __init__(self, private, authname, public='public', gridlist=['localhost'], tk=None):
+   def __init__(self, private, authname, public='public', gridlist=['localhost'], tk=None, maxsize=2147483647, cloudsize=2147483647):
       if tk != None: 
          self.tk = tk
       else:
@@ -33,6 +34,7 @@ class Controller(object):
       self.publicName = public
       self.privateName = private
       self.gridlist = gridlist
+      self.maxsize = maxsize
       self.loggedInUsername = None
       self.login = None
       self.mainscreen = None
@@ -46,7 +48,7 @@ class Controller(object):
       
       for attempts in range(3):
          try:
-            self.cloudAdapter = CloudAdapter('/tmp/keepersock')
+            self.cloudAdapter = CloudAdapter('/tmp/keepersock', maxsize=cloudsize)
             self.cloudAdapter.registerGridList(self.gridlist)
             break
          except OSError:
@@ -57,7 +59,8 @@ class Controller(object):
       self.jobqueue = JobQueue(unipattern=unipattern,
                                conn=self.conn,
                                multicastHandler=self.mcast,
-                               cloudAdapter=self.cloudAdapter)
+                               cloudAdapter=self.cloudAdapter,
+                               maxsize=maxsize)
 
       self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
       self.tk.bind_all('<Key-BackSpace>', self.hardReset)
@@ -83,11 +86,12 @@ class Controller(object):
          self.messageDisplay.clearQuota()
          self.tk.wm_attributes('-fullscreen', 0)
          self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
+         self.initalQueueLoad()
          self.login = AuthDialog(self.authCallback, master=self.tk)
          self.login.takefocus()
          self.tk.wm_withdraw()
-         self.jobqueue.fullRefresh()
-         self.nextRefresh = self.tk.after_idle(self.refreshQueue)
+         self.jobqueue.refresh()
+         self.nextRefresh = None
 
 
    def authCallback(self, username, result):
@@ -102,6 +106,7 @@ class Controller(object):
                                       authHandler=self.authorize,
                                       messageDisplay=self.messageDisplay,
                                       logoutCb=self.logoutCallback,
+                                      maxsize=self.maxsize,
                                       master=self.tk, width=self.tk['width'], height=self.tk['height'])
          self.tk.wm_attributes('-fullscreen', 1)
          if self.mainscreen.local is not None and self.mainscreen.local.joblist is not None:
@@ -128,10 +133,33 @@ class Controller(object):
        self.tk.wm_withdraw()
 
    def refreshQueue(self):
-       self.tk.after_cancel(self.nextRefresh)
-       self.jobqueue.refresh()
+       if self.nextRefresh is not None:
+          self.tk.after_cancel(self.nextRefresh)
+       self.jobqueue.refresh(interjobHook=self.tk.update_idletasks)
        self.nextRefresh = self.tk.after(6000, self.refreshQueue)
 
+
+   def initialQueueLoad(self):
+       numJobs = len(self.conn.getJobs(which_jobs='not-completed'))
+       startupMessage = Toplevel(width=600, height=150, master=self.tk)
+       Label(text='Please wait, this NINJa is starting up\nThis may take several minutes',
+             master=startupMessage).pack(side=TOP)
+       progress = ttk.Progressbar(length=250, maximum=numJobs, master=startupMessage)
+       progress.pack(side=BOTTOM, pady=8)
+       startupMessage.wm_geometry('%dx%d+%d+%d' % (600, 60, 350, 480))
+       progress.update_idletasks()
+       def incrementBar():
+          progress.step()
+          progress.update_idletasks()
+       self.jobqueue.refresh(interjobHook=incrementBar, force=True)
+       startupMessage.destroy()
+       print >> sys.stderr, time.time(), 'Finished initial load of jobQueue'
+       self.login = AuthDialog(self.authCallback, master=self.tk)
+       self.login.wm_title('Columbia University NINJa Printing System')
+       self.login.takefocus()
+       self.tk.wm_withdraw()
+       self.nextRefresh = self.tk.after_idle(self.refreshQueue)
+       
 
    def downloadBulletins(self, url):
          slash = url[8:].index('/') + 8
@@ -152,11 +180,8 @@ class Controller(object):
          self.conn.acceptJobs(self.privateName)
          self.conn.disablePrinter(self.publicName, reason="NINJa release required")
          self.conn.acceptJobs(self.publicName)
-         print 'Starting Controller and accepting incoming jobs'
-         self.login = AuthDialog(self.authCallback, master=self.tk)
-         self.login.wm_title('Columbia University NINJa Printing System')
-         self.login.takefocus()
-         self.tk.wm_withdraw()
+         print >> sys.stderr, time.time(), 'Starting Controller and accepting incoming jobs'
+         self.tk.after_idle(self.initialQueueLoad)
          self.tk.mainloop()
 
 

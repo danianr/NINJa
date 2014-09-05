@@ -61,11 +61,12 @@ class IndexView(object):
 
 class CloudAdapter(object):
 
-   def __init__(self, path):
+   def __init__(self, path, maxsize=2147483647):
        self.controlpath = path
        self.sftp = '/usr/bin/sftp'
        self.landing = '/svc/landing'
        self.remote_path = '/svc/remote'
+       self.maxsize = maxsize
        if not os.path.exists(self.controlpath):
           e = OSError()
           e.errno=2
@@ -222,6 +223,10 @@ class CloudAdapter(object):
         
 
    def storeJob(self, job, gridlist=None):
+        if job.size > self.maxsize:
+           print >> sys.stderr, time.time(), 'Not attempting to store job:%d size (%d bytes) is larger than allowed\n' % (job.jobId, job.size)
+           job.removeTmpFile()
+           return
         username = job.username
         sha512   = job.sha512
         tmpfile  = job.tmpfile

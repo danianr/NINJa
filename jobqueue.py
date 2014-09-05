@@ -10,7 +10,7 @@ import sys
 
 
 class Job(object):
-   def __init__(self, conn=None, jobId=None):
+   def __init__(self, conn=None, jobId=None, maxsize=2147483647):
        print >> sys.stderr, time.time(), 'Entry into Job(jobId=%s)' % (jobId,)
        self.jobId = jobId
        self.authenticated = False
@@ -20,24 +20,32 @@ class Job(object):
        # in the form of IPPError: (1030, 'client-error-not-found')
        doc = conn.getDocument(printerUri, jobId, 1)
        print >> sys.stderr, time.time(), 'After getDocument() for jobId:', jobId
-       
+       self.size     = os.stat(doc['file']).st_size
+       if self.size > maxsize:
+          print >> sys.stderr, time.time(), 'Document size is larger than accepted:', self.size
+          os.remove(doc['file'])
+          self.error = 'Document PostScript is too large to be printed;\ntry printing from a Mac'
+          self.pages = 0
+          self.sha512 = 'N/A'
+       else:   
 
-       # Note that the getDocument command must be issued prior to requesting
-       # detailed job attributes such as document-format, job-originating-host-name
-       # and job-originating-user-name, otherwise these attributes will be blank
-       digest_cmd = '/usr/bin/nice /usr/bin/openssl dgst -sha512 %s' % ( doc['file'] )
-       pagecount_cmd = './pagecount.sh %s %s' % ( doc['document-format'], doc['file'] )
-       sha512 = os.popen(digest_cmd).read()
-       print >> sys.stderr, time.time(), 'After the digest for jobId:', jobId
-       pagecount = os.popen(pagecount_cmd).read()
-       print >> sys.stderr, time.time(), 'After the pagecount for jobId:', jobId
-       try:
-           self.pages = int(pagecount)
-           self.error    = None
-       except ValueError:
-           self.pages = 1
-           self.error = 'Unable to determine pagecount, you will be charged for actual usage'
-       self.sha512 = sha512[-129:-1]
+          # Note that the getDocument command must be issued prior to requesting
+          # detailed job attributes such as document-format, job-originating-host-name
+          # and job-originating-user-name, otherwise these attributes will be blank
+          digest_cmd = '/usr/bin/nice /usr/bin/openssl dgst -sha512 %s' % ( doc['file'] )
+          pagecount_cmd = './pagecount.sh %s %s' % ( doc['document-format'], doc['file'] )
+          sha512 = os.popen(digest_cmd).read()
+          print >> sys.stderr, time.time(), 'After the digest for jobId:', jobId
+          pagecount = os.popen(pagecount_cmd).read()
+          print >> sys.stderr, time.time(), 'After the pagecount for jobId:', jobId
+          try:
+              self.pages = int(pagecount)
+              self.error    = None
+          except ValueError:
+              self.pages = 1
+              self.error = 'Unable to determine pagecount, you will be charged for actual usage'
+          self.sha512 = sha512[-129:-1]
+
        self.docFormat = doc['document-format']
        attr = conn.getJobAttributes(jobId)
        self.uuid = attr['job-uuid']
@@ -48,11 +56,12 @@ class Job(object):
        self.displayTitle = self.title[:47]
        self.jobState = attr['job-state']
        self.remote   = printerUri.endswith('/remote')
-       self.size     = os.stat(doc['file']).st_size
 
        # There is no need to keep the tmpfile around for remote jobs
        if self.remote and doc['file'] != "":
           os.remove(doc['file'])
+          self.tmpfile = None
+       elif self.size > maxsize:
           self.tmpfile = None
        else:
           self.tmpfile  = doc['file']
@@ -129,7 +138,7 @@ class JobMapping(object):
 
 
 class JobQueue(object):
-   def __init__(self, unipattern, conn, multicastHandler=None, cloudAdapter=None):
+   def __init__(self, unipattern, conn, multicastHandler=None, cloudAdapter=None, maxsize=2147483647):
        self.unipattern = unipattern
        self.conn       = conn
        self.mcast      = multicastHandler
@@ -141,6 +150,8 @@ class JobQueue(object):
        self.claimedMapFrame   = None
        self.unclaimedMapFrame = None
        self.delay      = 23	# seconds
+       self.maxsize    = maxsize
+       self.processing = None
 
 
    def getMapping(self, username=None):
@@ -161,11 +172,14 @@ class JobQueue(object):
           return self.claimedMapFrame
             
 
-   def refresh(self, event=None, update_idle=None):
+   def refresh(self, event=None, interjobHook=None, force=False):
+       if self.processing is not None:
+          return
        now = time.time()
        self.refreshReq.append(now)
        for req in self.refreshReq:
-          if (req + self.delay) < now:
+          if force or (req + self.delay) < now:
+             self.processing = now
              break
        else:
           return
@@ -173,17 +187,18 @@ class JobQueue(object):
        self.remove( filter( lambda x: not incompleteJobs.has_key(x), self.jobs.keys()) )
        for jobId in filter( lambda x: not self.jobs.has_key(x), incompleteJobs.keys()):
           try:
-             j = Job(self.conn, jobId )
+             j = Job(self.conn, jobId, self.maxsize)
              if not j.remote:
                 self.add(j)
           except cups.IPPError as e:
              print("caught an IPPError",e)
              continue
-          if update_idle is not None:
-             update_idle()
+          if interjobHook is not None:
+             interjobHook()
        self.refreshReq.clear()
        rettime = time.time()
        print >> sys.stderr, rettime, 'Total elapsed time for jobqueue.refresh():', rettime - now
+       self.processing = None
 
    def add(self, job):
        # updates the main index
@@ -195,9 +210,8 @@ class JobQueue(object):
           if self.claimedMapFrame is not None and \
              self.claimedMapFrame.username == job.username:
                 self.claimedMapFrame.setDirty()
-          if self.mcast is not None:
+          if self.cloud is not None and self.mcast is not None and job.size <= self.cloud.maxsize:
              self.mcast.advertise(job)
-          if self.cloud is not None:
              self.cloud.storeJob(job)
        else:
           self.unclaimed.appendleft(job)

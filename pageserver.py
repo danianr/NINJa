@@ -55,7 +55,7 @@ class PageServerAuth(object):
        if ( self.currentJob is not None and self.messageDisplay.getInterlock() == '1' ):
           if self.errorcb is not None:
              self.errorcb("Canceling Print Job...")
-          print 'User canceled job', self.currentJob.jobId
+          print >> sys.stderr, time.time(), 'User canceled job', self.currentJob.jobId
           self.conn.cancelJob(self.currentJob.jobId, purge_job=True)
 
 
@@ -65,7 +65,7 @@ class PageServerAuth(object):
        self.currentJob = job
        sub = self.conn.createSubscription(self.privateUri, ['all'], lease_duration=630)
        if self.messageDisplay.messageFrame is None:
-          print "a messageFrame MUST be registered with the MessageDisplay prior to job release"
+          print >> sys.stderr, time.time(), "a messageFrame MUST be registered with the MessageDisplay prior to job release"
           return
        else:
           mf = self.messageDisplay.messageFrame
@@ -76,7 +76,7 @@ class PageServerAuth(object):
 
        # define a function to clean up in the event of a job hanging on the printer
        def jobTimeout():
-           print "entering jobTimeout"
+           print >> sys.stderr, time.time(), "entering jobTimeout"
            mf.after_cancel(check)
            try:
               confirm = filter(lambda ev: (ev['notify-subscribed-event'] == 'job-completed' and
@@ -89,7 +89,7 @@ class PageServerAuth(object):
                                                ev['notify-job-id'] == job.jobId and ev['job-state'] > 6),
                                                                          conn.getNotifications([sub])['events'])
            except cups.IPPError:
-               print 'caught an IPPError() while trying to print [%s]\n' % ( job.jobId, )
+               print >> sys.stderr, time.time(), 'caught an IPPError() while trying to print [%s]\n' % ( job.jobId, )
            finally:
                self.currentJob = None
                if self.messageDisplay.messageFrame is not None:
@@ -140,14 +140,14 @@ class PageServerAuth(object):
                    
                 self.pageAccounting(self.hostname, job.username, requestId, sheetsCompleted)
           except cups.IPPError:
-                print "caught an IPPError"
+                print >> sys.stderr, time.time(), "caught an IPPError"
 
-       timeout = mf.after(600000, jobTimeout)
+       timeout = mf.after(300000, jobTimeout)
        check = mf.after(4000, checkNotifications)
        try:
           self.conn.moveJob(job_id=job.jobId, job_printer_uri=self.privateUri)
        except cups.IPPError:
-          print 'print IPPError: \n' 
+          print >> sys.stderr, time.time(), 'print IPPError: \n' 
           self.messageDisplay.releaseInterlock()
        
 

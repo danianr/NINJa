@@ -78,10 +78,15 @@ if __name__ == '__main__':
        dest = configure_private(conn, privatename, printername)
        print >> sys.stderr, time.time(), "Added private queue ", repr(dest.options)
 
+   # Maximum size to print locally
+   maxsize = 255 * 2**20
    
+   # Largest allowable size to push to remote grid nodes
+   cloudsize = 110 * 2**20
+
    gridlist = read_gridlist()
    print >> sys.stderr, time.time(), "gridlist: ",repr(gridlist)
-   controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=gridlist, tk=tk)
+   controller = Controller(private=privatename, authname=ninjaname, public='public', gridlist=gridlist, tk=tk, maxsize=maxsize, cloudsize=cloudsize)
    print >> sys.stderr, time.time(), "Controller initialized"
 
    controller.downloadBulletins('https://wwwapp.cc.columbia.edu/atg/PageServer/bulletin')
