@@ -1,5 +1,6 @@
 from Tkinter import *
 import os
+import posix
 from joblist import JobList
 import cups
 import re
@@ -32,8 +33,10 @@ class Job(object):
        print >> sys.stderr, time.time(), 'After the pagecount for jobId:', jobId
        try:
            self.pages = int(pagecount)
+           self.error    = None
        except ValueError:
            self.pages = 1
+           self.error = 'Unable to determine pagecount, you will be charged for actual usage'
        self.sha512 = sha512[-129:-1]
        self.docFormat = doc['document-format']
        attr = conn.getJobAttributes(jobId)
@@ -45,6 +48,7 @@ class Job(object):
        self.displayTitle = self.title[:47]
        self.jobState = attr['job-state']
        self.remote   = printerUri.endswith('/remote')
+       self.size     = os.stat(doc['file']).st_size
 
        # There is no need to keep the tmpfile around for remote jobs
        if self.remote and doc['file'] != "":
@@ -136,7 +140,7 @@ class JobQueue(object):
        self.refreshReq = deque()
        self.claimedMapFrame   = None
        self.unclaimedMapFrame = None
-       self.delay      = 75	# seconds
+       self.delay      = 23	# seconds
 
 
    def getMapping(self, username=None):
@@ -157,7 +161,7 @@ class JobQueue(object):
           return self.claimedMapFrame
             
 
-   def refresh(self, event=None):
+   def refresh(self, event=None, update_idle=None):
        now = time.time()
        self.refreshReq.append(now)
        for req in self.refreshReq:
@@ -175,6 +179,8 @@ class JobQueue(object):
           except cups.IPPError as e:
              print("caught an IPPError",e)
              continue
+          if update_idle is not None:
+             update_idle()
        self.refreshReq.clear()
        rettime = time.time()
        print >> sys.stderr, rettime, 'Total elapsed time for jobqueue.refresh():', rettime - now
@@ -218,7 +224,7 @@ class JobQueue(object):
            del self.jobs[id]
 
 
-   def getClaimedUuids(self,username):
+   def getClaimedUuids(self, username):
        uuids = []
        if username in self.claimed:
           for j in self.claimed[username]:
