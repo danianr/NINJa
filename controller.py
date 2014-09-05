@@ -86,7 +86,7 @@ class Controller(object):
          self.messageDisplay.clearQuota()
          self.tk.wm_attributes('-fullscreen', 0)
          self.tk.bind_all('<Key-Tab>', 'tk::TabToWindow [tk_focusNext %W]', add=False)
-         self.initalQueueLoad()
+         self.initialQueueLoad()
          self.login = AuthDialog(self.authCallback, master=self.tk)
          self.login.takefocus()
          self.tk.wm_withdraw()
