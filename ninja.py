@@ -79,10 +79,10 @@ if __name__ == '__main__':
        print >> sys.stderr, time.time(), "Added private queue ", repr(dest.options)
 
    # Maximum size to print locally
-   maxsize = 255 * 2**20
+   maxsize = 600 * 2**20
    
    # Largest allowable size to push to remote grid nodes
-   cloudsize = 110 * 2**20
+   cloudsize = 256 * 2**20
 
    gridlist = read_gridlist()
    print >> sys.stderr, time.time(), "gridlist: ",repr(gridlist)
