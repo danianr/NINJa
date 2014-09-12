@@ -85,8 +85,27 @@ class MainScreen(Frame):
       
        self.bind_all('<<Printing>>',   self.popupStatus) 
        self.bind_all('<<SwitchView>>', self.switchView )
-       self.bind_all('<<LocalJobs>>',  lambda e: self.local.joblist.focus_set() )
-       self.bind_all('<<RemoteJobs>>', lambda e: self.remote.joblist.focus_set() )
+
+       def localfocus(event):
+          try:
+             self.local.joblist.focus_set()
+          except:
+             (exc_type, exc_value, exc_traceback) = sys.exc_info()
+             print >> sys.stderr, time.time(), 'Caught during localfocus', exc_type, exc_value, event.__dict__
+    
+       self.bind_all('<<LocalJobs>>',  localfocus )
+
+
+       def remotefocus(event):
+          try:
+             self.remote.joblist.focus_set()
+          except:
+             (exc_type, exc_value, exc_traceback) = sys.exc_info()
+             print >> sys.stderr, time.time(), 'Caught during remotefocus', exc_type, exc_value, event.__dict__
+
+       self.bind_all('<<RemoteJobs>>', remotefocus )
+
+
        self.bind_all('<<Logout>>',     self.logout )
        self.bind_all('<<CancelJob>>',  authHandler.cancelCurrentJob )
 
