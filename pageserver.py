@@ -89,7 +89,9 @@ class PageServerAuth(object):
                                                ev['notify-job-id'] == job.jobId and ev['job-state'] > 6),
                                                                          conn.getNotifications([sub])['events'])
            except cups.IPPError:
-               print >> sys.stderr, time.time(), 'caught an IPPError() while trying to print [%s]\n' % ( job.jobId, )
+               (exc_type, exc_value, exc_traceback) = sys.exc_info()
+               print >> sys.stderr, time.time(), 'caught an IPPError() while trying to print [%s]\n' % ( job.jobId, ), exc_value
+               
            finally:
                self.currentJob = None
                if self.messageDisplay.messageFrame is not None:
@@ -142,14 +144,16 @@ class PageServerAuth(object):
                    
                 self.pageAccounting(self.hostname, job.username, requestId, sheetsCompleted)
           except cups.IPPError:
-                print >> sys.stderr, time.time(), "caught an IPPError"
+                (exc_type, exc_value, exc_traceback) = sys.exc_info()
+                print >> sys.stderr, time.time(), "caught an IPPError", exc_value
 
        timeout = mf.after(300000, jobTimeout)
        check = mf.after(4000, checkNotifications)
        try:
           self.conn.moveJob(job_id=job.jobId, job_printer_uri=self.privateUri)
        except cups.IPPError:
-          print >> sys.stderr, time.time(), 'print IPPError: \n' 
+          (exc_type, exc_value, exc_traceback) = sys.exc_info()
+          print >> sys.stderr, time.time(), 'caught IPPError', exc_value
           self.messageDisplay.releaseInterlock()
        
 

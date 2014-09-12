@@ -62,6 +62,8 @@ class RemoteFrame(Frame):
                  os.unlink(localfilename)
                  remoteJobIds.add(jobId)
               except:
+                 (exc_type, exc_value, exc_traceback) = sys.exc_info()
+                 print >> sys.stderr, time.time(), 'Caught retrieving remote jobs', exc_type, exc_value
                  self.errorcb("There was a problem retrieving your remote job")
                  self.event_generate("<<Finished>>")
                  self.resetAutologout(45)
