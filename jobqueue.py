@@ -26,7 +26,7 @@ class Job(object):
           os.remove(doc['file'])
           self.error = 'Document PostScript is too large to be printed;\ntry printing from a Mac'
           self.pages = 0
-          self.sha512 = 'N/A'
+          self.sha512 = 'NA'
        else:   
 
           # Note that the getDocument command must be issued prior to requesting
@@ -67,9 +67,9 @@ class Job(object):
           self.tmpfile  = doc['file']
        
 
-       if ( attr.has_key('Duplex')  and attr['Duplex'] == u'DuplexNoTumble' ):
+       if ( attr.has_key('Duplex')  and attr['Duplex'] != u'None' ):
            self.duplex = True
-	   self.pages = self.pages % 2 + self.pages / 2
+	   self.pages = ( self.pages % 2  + self.pages ) / 2
        else:
            self.duplex = False
 

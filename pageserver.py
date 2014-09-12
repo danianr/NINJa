@@ -122,14 +122,16 @@ class PageServerAuth(object):
                    print >> sys.stderr, time.time(), "attr['job-media-sheets-completed']",attr['job-media-sheets-completed']
                    print >> sys.stderr, time.time(), "completed[-1]['job-impressions-completed']", completed[-1]['job-impressions-completed']
 
-                   if attr['job-media-sheets-completed'] != 0:
-                      sheetsCompleted = attr['job-media-sheets-completed']
-                      print >> sys.stderr, time.time(), 'using job-media-sheets-completed: ', sheetsCompleted
-                   elif completed[-1]['job-impressions-completed'] != 0:
+                   if completed[-1]['job-impressions-completed'] != 0:
                       sheetsCompleted = completed[-1]['job-impressions-completed']
-                      if attr.has_key('Duplex') and attr['Duplex'] == u'DuplexNoTumble':
+                      if job.duplex:
                          sheetsCompleted = ( sheetsCompleted  + (sheetsCompleted % 2) ) / 2
                       print >> sys.stderr, time.time(), 'using job-impressions-completed: ', sheetsCompleted
+                   elif attr['job-media-sheets-completed'] != 0:
+                      sheetsCompleted = attr['job-media-sheets-completed']
+                      if job.duplex:
+                         sheetsCompleted = ( sheetsCompleted  + (sheetsCompleted % 2) ) / 2
+                      print >> sys.stderr, time.time(), 'using job-media-sheets-completed: ', sheetsCompleted
                    else:
                       sheetsCompleted = job.pages
                       print >> sys.stderr, time.time(), 'falling back to job.pages:', sheetsCompleted
