@@ -166,6 +166,8 @@ class MainScreen(Frame):
           self.resetAutologout(45)
           return
        self.event_generate('<<Finished>>')
+       self.unbind_all('<<LocalJobs>>')
+       self.unbind_all('<<RemoteJobs>>')
        self.unbind_all('<<SwitchView>>')
        self.unbind_all('<<Logout>>')
        self.unclaimed.destroy()
