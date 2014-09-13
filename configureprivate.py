@@ -35,8 +35,8 @@ def configure_private(conn, privatename, printername):
                  re.compile('(?i).*"(HP) (LaserJet P4515)"'),
                  re.compile('(?i).*"(HP) (LaserJet M806)"') ]
 
-    ppdNameMap = [ 'drv:///hpcups.drv/hp-laserjet_9050-pcl3.ppd',
-                   'drv:///hpcups.drv/hp-laserjet_p4515x.ppd',
+    ppdNameMap = [ 'postscript-hp:0/ppd/hplip/HP/hp-laserjet_9050-ps.ppd',
+                   'drv:///hpijs.drv/hp-laserjet_p4515x-hpijs.ppd',
                    'hp-laserjet_m806-ps.ppd' ]
                    
 
@@ -51,13 +51,20 @@ def configure_private(conn, privatename, printername):
     (n, model, string)  = pjl.expect(modelsRE)
     pjl.close()
 
-    if ppdNameMap[n].startswith('drv://'):
+    if ppdNameMap[n].startswith('drv://') or ppdNameMap[n].startswith('postscript-hp:') :
         localPPD = cups.PPD(conn.getServerPPD(ppdNameMap[n]))
     else:
         localPPD = cups.PPD(ppdNameMap[n])
-     
-    localPPD.markOption('OptionDuplex', 'True')
-    localPPD.markOption('Duplex', 'DuplexNoTumble')
+    
+    if n == 0:
+       localPPD.markOption('HPOption_2000_Sheet_Tray', 'True')
+       localPPD.markOption('HPOption_Duplexer', 'True')
+       localPPD.markOption('InstalledMemory', '384 - 512 MB')
+       localPPD.markOption('HPOption_PaperPolicy', 'NearestSizeNoAdjust')
+       localPPD.markOption('Duplex', 'DuplexNoTumble')
+    else:
+       localPPD.markOption('OptionDuplex', 'True')
+       localPPD.markOption('Duplex', 'DuplexNoTumble')
 
     try:
        conn.addPrinter(privatename, ppd=localPPD, device='socket://%s' % (printername,))
