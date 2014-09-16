@@ -15,6 +15,7 @@ fork_sftp() {
 
    if [ -f "/svc/remote/UPLOAD/${username}_${sha512}" ]; then
       echo $(date +'%s') $username $filename $sha512 has been previously processed >> $log
+      rm $filename
       exit 0
    fi
 
